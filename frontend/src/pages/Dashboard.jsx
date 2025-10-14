@@ -1,20 +1,9 @@
+import { useMemo, useState } from "react";
+import AddEventButton from "../components/AddEventButton";
+import AddEventModal from "../components/AddEventModal";
 import EventCard from "../components/EventCard";
 import TaskCard from "../components/TaskCard";
-
-const events = [
-  {
-    id: 1,
-    title: "Reunión con equipo",
-    time: "10:00 AM",
-    description: "Revisión semanal de avances",
-  },
-  {
-    id: 2,
-    title: "Cita médica",
-    time: "3:30 PM",
-    description: "Chequeo de rutina",
-  },
-];
+import useEvents from "../hooks/useEvents";
 
 const tasks = [
   { id: 1, title: "Preparar presentación del proyecto" },
@@ -22,16 +11,30 @@ const tasks = [
 ];
 
 function Dashboard() {
-  const today = new Date();
-  const formattedDate = today.toLocaleDateString("es-ES", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const { events, addEvent } = useEvents();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleAddEvent = () => {
-    alert("Agregar evento");
+  // Calculamos la fecha actual solo una vez durante el render del componente.
+  const formattedDate = useMemo(() => {
+    const today = new Date();
+    return today.toLocaleDateString("es-ES", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, []);
+
+  const handleAddEventClick = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleSaveEvent = (eventData) => {
+    addEvent(eventData);
   };
 
   return (
@@ -83,13 +86,13 @@ function Dashboard() {
         </section>
       </main>
 
-      <button
-        type="button"
-        onClick={handleAddEvent}
-        className="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-full shadow-lg transition-transform duration-200 hover:-translate-y-0.5"
-      >
-        Agregar evento
-      </button>
+      <AddEventButton onClick={handleAddEventClick} />
+
+      <AddEventModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSaveEvent}
+      />
     </div>
   );
 }
