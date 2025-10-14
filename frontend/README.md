@@ -1,16 +1,90 @@
-# React + Vite
+# 📅 Agenda Inteligente
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Una plataforma de gestión de tiempo y reuniones que permite visualizar eventos, tareas y sincronizar compromisos con servicios externos (Outlook, Google Calendar, etc.).
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Estado del proyecto
+✅ **MVP Frontend funcional**  
+Construido con React + Vite + TailwindCSS v4 y una estructura modular preparada para integración con backend Flask.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🧩 Estructura del proyecto
 
-## Expanding the ESLint configuration
+agenda-inteligente/
+├── frontend/
+│ ├── src/
+│ │ ├── pages/
+│ │ │ └── Dashboard.jsx → vista principal
+│ │ ├── components/
+│ │ │ ├── EventCard.jsx → tarjeta de eventos
+│ │ │ └── TaskCard.jsx → tarjeta de tareas
+│ │ └── App.jsx → punto de entrada
+│ ├── postcss.config.js
+│ ├── tailwind.config.js
+│ └── index.css → @import "tailwindcss";
+├── backend/ → reservado para API Flask
+├── docs/ → documentación técnica
+└── Makefile → automatización de tareas
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+yaml
+Copiar código
+
+---
+
+## ⚙️ Tecnologías utilizadas
+
+| Tipo | Herramienta |
+|------|--------------|
+| **Frontend** | React + Vite |
+| **Estilos** | TailwindCSS v4 |
+| **Compilador CSS** | PostCSS + @tailwindcss/postcss |
+| **Automatización** | Makefile |
+| **Gestor de dependencias** | npm |
+
+---
+
+## 🧠 Funcionalidades implementadas (MVP)
+
+- 🏠 **Dashboard principal** con eventos y tareas simuladas (mock data).  
+- 🧱 **Componentes reutilizables:**  
+  - `EventCard` → muestra eventos próximos.  
+  - `TaskCard` → muestra tareas pendientes.  
+- 🎨 **Estilos responsivos** con Tailwind.  
+- ⚡ **Servidor Vite** para desarrollo rápido.  
+- 🧰 **Makefile** con comandos útiles (`run`, `install`, `clean`).
+
+---
+
+## 🧾 Makefile disponible
+
+Comandos:
+```bash
+make run       # Ejecuta el servidor frontend (Vite)
+make install   # Instala dependencias
+make clean     # Limpia cachés y node_modules
+make help      # Muestra los comandos disponibles
+💻 Cómo ejecutar el proyecto
+bash
+Copiar código
+# Clonar el repositorio
+git clone https://github.com/TU_USUARIO/agenda-inteligente.git
+cd agenda-inteligente
+
+# Instalar dependencias
+make install
+
+# Iniciar el servidor de desarrollo
+make run
+Luego abre en tu navegador:
+👉 http://localhost:5173
+
+🧩 Próximos pasos
+ Crear formulario/modal “Agregar evento”.
+
+ Conectar con backend Flask (API REST).
+
+ Añadir persistencia (localStorage o BD).
+
+ Sincronizar con Google / Outlook Calendar.
