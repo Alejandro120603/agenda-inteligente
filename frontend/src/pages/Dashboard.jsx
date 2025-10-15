@@ -48,7 +48,7 @@ function Dashboard() {
 
       <main className="max-w-6xl mx-auto px-6 pt-28 pb-16">
         <section className="mb-10">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Hola, Usuario 👋</h2>
+          <h2 className="text-3xl font-bold text-slate-900 mb-2">Hola, *Nombre de usuario*</h2>
           <p className="text-slate-600 text-base">
             Aquí tienes un resumen de tu agenda para hoy. Mantente al día con tus
             compromisos y tareas pendientes.
