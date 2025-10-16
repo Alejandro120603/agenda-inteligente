@@ -26,25 +26,28 @@ services:
 
     # 🌱 Variables de entorno iniciales
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_ROOT_PASSWORD: "RootPass123@"
       MYSQL_DATABASE: agenda_inteligente
       MYSQL_USER: agenda_user
-      MYSQL_PASSWORD: agenda123
+      MYSQL_PASSWORD: "Agenda123@"
 
     # 🔌 Puertos
     ports:
       - "3310:3306"    # Acceso local desde host → contenedor
 
-    # 💾 Script de inicialización (crea tablas y datos iniciales)
+    # 💾 Scripts de inicialización (crea tablas y datos iniciales)
     volumes:
-      # El script realmente vive en backend/models/init_db.sql. Usamos la ruta correcta
-      # para evitar que Docker cree un directorio vacío que impida que MySQL arranque.
-      - ./backend/models/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+      - ./backend/models:/docker-entrypoint-initdb.d:ro
+      - mysql_data:/var/lib/mysql
 
     # 🩺 Healthcheck robusto (espera a que el servidor esté listo)
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -prootpass --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -pRootPass123@ --silent"]
       interval: 15s
       timeout: 10s
-      retries: 20
-      start_period: 90s
+      retries: 40
+      start_period: 120s
+
+volumes:
+  mysql_data:
+    driver: local
