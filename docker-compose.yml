@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  # 🧠 Backend Flask
+  backend:
+    build: ./backend
+    container_name: agenda-backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "python wait_for_db.py && flask run --host=0.0.0.0 --port=5000"
+
+  # 🗄️ Base de datos MySQL
+  db:
+    image: mysql:8.0.33
+    container_name: agenda-db
+    restart: always
+
+    # 🌱 Variables de entorno iniciales
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: agenda_inteligente
+      MYSQL_USER: agenda_user
+      MYSQL_PASSWORD: agenda123
+
+    # 🔌 Puertos
+    ports:
+      - "3310:3306"    # Acceso local desde host → contenedor
+
+    # 💾 Script de inicialización (crea tablas y datos iniciales)
+    volumes:
+      - ./backend/db/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+
+    # 🩺 Healthcheck robusto (espera a que el servidor esté listo)
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -prootpass --silent"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
