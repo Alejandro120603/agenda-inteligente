@@ -1,0 +1,48 @@
+# ============================================================
+# 🐳 Docker Compose — Proyecto Agenda Inteligente
+# ------------------------------------------------------------
+# Levanta:
+#   - Base de datos MySQL 8.0
+#   - Backend Flask (API)
+# ============================================================
+
+services:
+  # ============================================================
+  # 🧱 Servicio de base de datos MySQL
+  # ============================================================
+  db:
+    image: mysql:8.0
+    container_name: agenda-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: agenda_inteligente
+      MYSQL_USER: agenda_user
+      MYSQL_PASSWORD: agenda123
+    volumes:
+      - ./db/data:/var/lib/mysql
+    ports:
+      - "3307:3306"    # 👈 Cambiado para evitar conflicto con otros MySQL
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uagenda_user", "-pagenda123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================================
+  # 🧠 Servicio de backend Flask
+  # ============================================================
+  backend:
+    build: ./backend
+    container_name: agenda-backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
