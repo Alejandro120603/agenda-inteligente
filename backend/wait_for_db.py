@@ -1,10 +1,33 @@
-import os, time, pymysql
+import os
+import time
 
-host = os.getenv("DB_HOST", "db")
-port = int(os.getenv("DB_PORT", 3306))
-user = os.getenv("DB_USER", "agenda_user")
-password = os.getenv("DB_PASSWORD", "agenda123")
-database = os.getenv("DB_NAME", "agenda_inteligente")
+import pymysql
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
+
+def _required_env(name: str) -> str:
+    """Return the environment variable or raise a helpful error."""
+
+    value = os.getenv(name)
+    if value is None or value == "":
+        raise RuntimeError(
+            f"La variable de entorno '{name}' no está definida y es necesaria para conectarse a la base de datos."
+        )
+    return value
+
+
+try:
+    host = _required_env("DB_HOST")
+    port = int(os.getenv("DB_PORT", 3306))
+    user = _required_env("DB_USER")
+    password = _required_env("DB_PASSWORD")
+    database = _required_env("DB_NAME")
+except RuntimeError as env_error:
+    print(f"❌ {env_error}")
+    raise SystemExit(1) from env_error
 
 print("⏳ Esperando a que la base de datos esté lista...")
 
