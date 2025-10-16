@@ -14,7 +14,9 @@ services:
   # 🧠 Backend Flask
   # ==========================================================
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: agenda-backend
     restart: always
     env_file:
@@ -24,7 +26,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: flask run --host=0.0.0.0
     volumes:
       - ./backend:/app
     networks:
