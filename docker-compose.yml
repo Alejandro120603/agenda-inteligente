@@ -46,11 +46,14 @@ services:
       MYSQL_PASSWORD: agenda123
     ports:
       - "3310:3306"   # 👈 Puerto externo diferente (no interfiere con PIDI ni Contador)
+    # Healthcheck proactivo: se autentica contra MySQL en vez de solo abrir el puerto.
+    # Esto evita marcar el servicio como healthy antes de que termine la inicialización de InnoDB.
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uagenda_user", "-pagenda123"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uagenda_user -pagenda123 --silent"]
+      interval: 10s      # Revisa el estado cada 10 segundos
+      timeout: 5s        # Considera fallo si la respuesta tarda más de 5 segundos
+      retries: 12        # Da ~2 minutos para inicializaciones largas en discos lentos
+      start_period: 30s  # Respeta el tiempo que MySQL necesita para preparar /var/lib/mysql
     volumes:
       - ./backups:/docker-entrypoint-initdb.d
       - db_data:/var/lib/mysql
