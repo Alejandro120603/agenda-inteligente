@@ -37,7 +37,9 @@ services:
 
     # 💾 Script de inicialización (crea tablas y datos iniciales)
     volumes:
-      - ./backend/db/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+      # El script realmente vive en backend/models/init_db.sql. Usamos la ruta correcta
+      # para evitar que Docker cree un directorio vacío que impida que MySQL arranque.
+      - ./backend/models/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
 
     # 🩺 Healthcheck robusto (espera a que el servidor esté listo)
     healthcheck:
