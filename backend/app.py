@@ -5,7 +5,29 @@ from dotenv import load_dotenv
 from flask import Flask, current_app
 from sqlalchemy.exc import OperationalError
 
-from models import db
+from models import (
+    CuentaConectada,
+    Equipo,
+    EventoExterno,
+    MiembroEquipo,
+    ParticipanteReunion,
+    ReunionPropuesta,
+    Usuario,
+    db,
+)
+
+# Aseguramos que SQLAlchemy cargue la metadata de todos los modelos antes de
+# ejecutar ``db.create_all()``. La tupla sirve únicamente para documentar la
+# dependencia explícita y evitar advertencias por importaciones sin uso.
+_MODEL_REGISTRY = (
+    Usuario,
+    CuentaConectada,
+    EventoExterno,
+    Equipo,
+    MiembroEquipo,
+    ReunionPropuesta,
+    ParticipanteReunion,
+)
 
 load_dotenv()
 
