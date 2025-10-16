@@ -79,3 +79,44 @@ usuarios ───< cuentas_conectadas ───< eventos_externos
 Al iniciar la aplicación con `docker compose up --build`, Flask carga todos los
 modelos definidos en `backend/models.py` antes de llamar a `db.create_all()`,
 garantizando la creación de las siete tablas descritas anteriormente en MySQL.
+
+## 🧩 Solución a problemas de MySQL en Docker
+
+Cuando el contenedor `agenda-db` quedaba en estado **unhealthy** el log se
+detenía en la inicialización de InnoDB. El origen fue un directorio de datos
+(`db_data`) corrupto por apagados bruscos: MySQL intentaba recuperar archivos
+de redo/undo y nunca alcanzaba el mensaje `ready for connections`, lo que hacía
+fallar al `depends_on` del backend.
+
+**Cambios aplicados**
+
+- Se añadió un *healthcheck* que ejecuta `mysqladmin ping` autenticándose con el
+  mismo usuario de la app. De esta manera Docker solo marca el servicio como
+  `healthy` cuando MySQL acepta conexiones reales.
+- El backend ahora arranca mediante un `entrypoint.sh` que reintenta conectarse
+  a MySQL con PyMySQL antes de lanzar Flask, evitando errores de *race
+  condition* durante el `compose up`.
+- Se incrementó el `start_period` y los `retries` del healthcheck para dar más
+  margen a la recuperación de InnoDB cuando existan volúmenes grandes.
+
+**Limpieza segura del volumen corrupto**
+
+1. Detén los servicios de Agenda Inteligente: `docker compose down`.
+2. Elimina únicamente el volumen afectado (no toca otros proyectos):
+
+   ```bash
+   docker volume ls --filter name=agenda-inteligente_db_data -q \
+     | xargs -r docker volume rm
+   ```
+
+3. Vuelve a levantar el entorno: `docker compose up --build`.
+
+Tras la limpieza, `docker ps` debe mostrar `agenda-db (healthy)` y `agenda-backend`
+en estado `Up`. Puedes validar la carga del esquema con:
+
+```bash
+docker exec -it agenda-db \
+  mysql -uagenda_user -pagenda123 -D agenda_inteligente -e "SHOW TABLES;"
+```
+
+El resultado debe listar las siete tablas descritas en la sección anterior.
