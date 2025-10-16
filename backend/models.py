@@ -12,7 +12,7 @@ class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     correo = db.Column(db.String(150), unique=True, nullable=False)
-    contraseña_hash = db.Column(db.String(255), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
     zona_horaria = db.Column(db.String(50), default='America/Mexico_City')
     creado_en = db.Column(db.DateTime, default=datetime.utcnow)
 
