@@ -2,11 +2,14 @@
 set -euo pipefail
 
 # Variables con valores por defecto para facilitar pruebas locales.
-DB_HOST="${MYSQL_HOST:-db}"
-DB_PORT="${MYSQL_PORT:-3306}"
-DB_USER="${MYSQL_USER:-agenda_user}"
-DB_PASSWORD="${MYSQL_PASSWORD:-agenda123}"
-DB_NAME="${MYSQL_DATABASE:-agenda_inteligente}"
+# Respetamos primero las variables DB_* declaradas por ``env_file``; si no
+# existen, usamos posibles equivalentes MYSQL_* y, en última instancia,
+# valores por defecto seguros para desarrollo local.
+DB_HOST="${DB_HOST:-${MYSQL_HOST:-db}}"
+DB_PORT="${DB_PORT:-${MYSQL_PORT:-3306}}"
+DB_USER="${DB_USER:-${MYSQL_USER:-agenda_user}}"
+DB_PASSWORD="${DB_PASSWORD:-${MYSQL_PASSWORD:-agenda123}}"
+DB_NAME="${DB_NAME:-${MYSQL_DATABASE:-agenda_inteligente}}"
 
 export DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME
 

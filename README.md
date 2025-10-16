@@ -96,6 +96,9 @@ fallar al `depends_on` del backend.
 - El backend ahora arranca mediante un `entrypoint.sh` que reintenta conectarse
   a MySQL con PyMySQL antes de lanzar Flask, evitando errores de *race
   condition* durante el `compose up`.
+- El `entrypoint.sh` da prioridad a las variables `DB_*` inyectadas por
+  `docker compose` (como `DB_PASSWORD`), por lo que las credenciales pueden
+  modificarse desde el `.env` sin reconstruir la imagen.
 - Se incrementó el `start_period` y los `retries` del healthcheck para dar más
   margen a la recuperación de InnoDB cuando existan volúmenes grandes.
 
@@ -120,3 +123,19 @@ docker exec -it agenda-db \
 ```
 
 El resultado debe listar las siete tablas descritas en la sección anterior.
+
+### Verificación rápida desde el backend
+
+Si MySQL aparece como *healthy* pero el backend sigue esperando, ingresa al
+contenedor Flask y prueba la conexión directamente con PyMySQL (el comando usa
+las variables de entorno cargadas por Docker Compose):
+
+```bash
+docker exec -it agenda-backend \
+  python -c "import os, pymysql; conn = pymysql.connect(host=os.environ['DB_HOST'], port=int(os.environ['DB_PORT']), user=os.environ['DB_USER'], password=os.environ['DB_PASSWORD'], database=os.environ['DB_NAME']); print('Conexión OK:', conn.open); conn.close()"
+```
+
+Si el comando imprime `Conexión OK: True` la capa de red y las credenciales son
+correctas. En caso contrario, revisa que el `.env` utilizado por `docker
+compose` contenga los valores actualizados y vuelve a levantar los servicios con
+`docker compose up --build`.
