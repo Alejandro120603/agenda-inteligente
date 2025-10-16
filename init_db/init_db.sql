@@ -8,6 +8,7 @@ USE agenda_inteligente;
 
 -- Asegurar configuración de caracteres para la sesión actual
 SET NAMES utf8mb4;
+SET time_zone = '+00:00';
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- Eliminación de tablas existentes para permitir una recreación limpia del esquema
@@ -26,7 +27,7 @@ CREATE TABLE usuarios (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     nombre VARCHAR(100) NOT NULL,
     correo VARCHAR(150) NOT NULL,
-    `contraseña_hash` VARCHAR(255) NOT NULL,
+    contrasena_hash VARCHAR(255) NOT NULL,
     zona_horaria VARCHAR(50) NOT NULL,
     creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
@@ -47,6 +48,7 @@ CREATE TABLE cuentas_conectadas (
     token_expira_en DATETIME NULL,
     sincronizado_en DATETIME NULL,
     PRIMARY KEY (id),
+    UNIQUE KEY uq_cuentas_conectadas_usuario_proveedor (id_usuario, proveedor, correo_vinculado),
     KEY idx_cuentas_conectadas_usuario (id_usuario),
     CONSTRAINT fk_cuentas_conectadas_usuario
         FOREIGN KEY (id_usuario)
@@ -61,8 +63,8 @@ CREATE TABLE cuentas_conectadas (
 CREATE TABLE eventos_externos (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     id_cuenta INT UNSIGNED NOT NULL,
-    id_evento_externo VARCHAR(255) NOT NULL,
-    titulo VARCHAR(255) NOT NULL,
+    id_evento_externo VARCHAR(191) NOT NULL,
+    titulo VARCHAR(200) NOT NULL,
     descripcion TEXT,
     inicio DATETIME NOT NULL,
     fin DATETIME NOT NULL,
@@ -72,10 +74,12 @@ CREATE TABLE eventos_externos (
     PRIMARY KEY (id),
     UNIQUE KEY uq_eventos_externos_id_externo (id_cuenta, id_evento_externo),
     KEY idx_eventos_externos_cuenta (id_cuenta),
+    KEY idx_eventos_externos_intervalo (inicio, fin),
     CONSTRAINT fk_eventos_externos_cuenta
         FOREIGN KEY (id_cuenta)
         REFERENCES cuentas_conectadas (id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT ck_eventos_externos_intervalo CHECK (fin > inicio)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
@@ -84,7 +88,7 @@ CREATE TABLE eventos_externos (
 -- Equipos de trabajo creados dentro de la plataforma
 CREATE TABLE equipos (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    nombre VARCHAR(100) NOT NULL,
+    nombre VARCHAR(120) NOT NULL,
     creado_por INT UNSIGNED NOT NULL,
     creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
@@ -106,6 +110,7 @@ CREATE TABLE miembros_equipo (
     rol ENUM('administrador','miembro') NOT NULL DEFAULT 'miembro',
     unido_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
+    UNIQUE KEY uq_miembros_equipo (id_equipo, id_usuario),
     KEY idx_miembros_equipo_equipo (id_equipo),
     KEY idx_miembros_equipo_usuario (id_usuario),
     CONSTRAINT fk_miembros_equipo_equipo
@@ -135,6 +140,7 @@ CREATE TABLE reuniones_propuestas (
     PRIMARY KEY (id),
     KEY idx_reuniones_equipo (id_equipo),
     KEY idx_reuniones_creada_por (creada_por),
+    KEY idx_reuniones_estado (estado),
     CONSTRAINT fk_reuniones_equipo
         FOREIGN KEY (id_equipo)
         REFERENCES equipos (id)
@@ -142,7 +148,8 @@ CREATE TABLE reuniones_propuestas (
     CONSTRAINT fk_reuniones_creada_por
         FOREIGN KEY (creada_por)
         REFERENCES usuarios (id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT ck_reuniones_intervalo CHECK (fin_propuesto > inicio_propuesto)
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci
@@ -156,6 +163,7 @@ CREATE TABLE participantes_reunion (
     respuesta ENUM('pendiente','aceptado','rechazado') NOT NULL DEFAULT 'pendiente',
     invitado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
+    UNIQUE KEY uq_participantes_reunion (id_reunion, id_usuario),
     KEY idx_participantes_reunion_reunion (id_reunion),
     KEY idx_participantes_reunion_usuario (id_usuario),
     CONSTRAINT fk_participantes_reunion_reunion
@@ -172,11 +180,5 @@ CREATE TABLE participantes_reunion (
   COMMENT='Relación de usuarios invitados a reuniones propuestas';
 
 -- Inserción de usuario inicial de ejemplo
-INSERT INTO usuarios (nombre, correo, `contraseña_hash`, zona_horaria)
+INSERT INTO usuarios (nombre, correo, contrasena_hash, zona_horaria)
 VALUES ('Administrador', 'admin@test.com', '', 'UTC');
-
--- Índices adicionales sugeridos
-CREATE INDEX idx_usuarios_correo ON usuarios (correo);
-CREATE INDEX idx_miembros_equipo_equipo_usuario ON miembros_equipo (id_equipo, id_usuario);
-CREATE INDEX idx_participantes_reunion_reunion_usuario ON participantes_reunion (id_reunion, id_usuario);
-
