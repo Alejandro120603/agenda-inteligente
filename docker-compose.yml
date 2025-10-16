@@ -1,33 +1,67 @@
-version: '3.9'
+# ============================================================
+# 📅 Proyecto: Agenda Inteligente
+# ------------------------------------------------------------
+# Servicios:
+#   - backend (Flask)
+#   - db (MySQL 8.0.32)
+# ------------------------------------------------------------
+# Puerto backend: 5000
+# Puerto MySQL:   3310 (externo) → 3306 (interno)
+# ============================================================
 
 services:
+  # ==========================================================
+  # 🧠 Backend Flask
+  # ==========================================================
   backend:
     build: ./backend
     container_name: agenda-backend
+    restart: always
     env_file:
       - .env
     ports:
       - "5000:5000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     command: flask run --host=0.0.0.0
     volumes:
       - ./backend:/app
+    networks:
+      - agenda_network
 
+  # ==========================================================
+  # 🗄️ Base de datos MySQL
+  # ==========================================================
   db:
-    image: mysql:8.0
+    image: mysql:8.0.32
     container_name: agenda-db
     restart: always
+    command: --default-authentication-plugin=mysql_native_password
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: agenda_inteligente
       MYSQL_USER: agenda_user
       MYSQL_PASSWORD: agenda123
     ports:
-      - "3307:3306"
+      - "3310:3306"   # 👈 Puerto externo diferente (no interfiere con PIDI ni Contador)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uagenda_user", "-pagenda123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - ./backups:/docker-entrypoint-initdb.d
       - db_data:/var/lib/mysql
+    networks:
+      - agenda_network
 
+# ============================================================
+# 🧩 Redes y Volúmenes
+# ============================================================
 volumes:
   db_data:
+
+networks:
+  agenda_network:
+    driver: bridge
