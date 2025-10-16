@@ -16,7 +16,7 @@
 FRONTEND_DIR = frontend
 BACKEND_DIR = backend
 
-.PHONY: run install clean help compose-up compose-down logs reset-db
+.PHONY: run install clean help compose-up compose-down logs reset-db check-db
 
 # ============================================================
 # 🎨 FRONTEND
@@ -56,6 +56,10 @@ logs:
 # 🔄 Reinicia la base de datos desde cero
 reset-db:
 	docker compose down -v && docker compose up --build
+
+# ✅ Verifica que la base de datos está accesible y con tablas
+check-db:
+	./scripts/check_db.sh
 
 # ============================================================
 # 🧾 AYUDA
