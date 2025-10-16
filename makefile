@@ -1,19 +1,43 @@
 # ============================================================
 # 📅 Makefile — Proyecto Agenda Inteligente
 # ------------------------------------------------------------
-# Comandos útiles:
-#   make run            → Ejecuta el frontend de desarrollo
-#   make install        → Instala dependencias del frontend
-#   make clean          → Limpia builds y cachés
-#   make help           → Muestra los comandos disponibles
+# Controla el frontend, backend y base de datos (Docker Compose)
 # ============================================================
 
-# Ruta del frontend
+# 📦 Rutas
 FRONTEND_DIR = frontend
+BACKEND_DIR = backend
 
-.PHONY: run install clean help
+.PHONY: run install clean help compose-up compose-down logs reset-db
 
-# 🧠 Inicia el servidor de desarrollo (Vite)
+# ============================================================
+# 🐳 DOCKER COMPOSE COMMANDS
+# ============================================================
+
+# 🚀 Levanta el stack completo (backend + db)
+compose-up:
+	docker compose up --build
+
+# 🧹 Detiene y limpia contenedores
+compose-down:
+	docker compose down -v
+
+# 🧰 Reinicia la base de datos MySQL
+reset-db:
+	docker compose down -v
+	docker compose up -d db
+	sleep 10
+	docker exec -i agenda-db mysql -uagenda_user -pagenda123 -e "DROP DATABASE IF EXISTS agenda_inteligente; CREATE DATABASE agenda_inteligente;"
+
+# 📜 Muestra logs del backend en tiempo real
+logs:
+	docker logs -f agenda-backend
+
+# ============================================================
+# 💻 FRONTEND COMMANDS
+# ============================================================
+
+# 🧠 Inicia el servidor del frontend (Vite)
 run:
 	cd $(FRONTEND_DIR) && npm run dev
 
@@ -28,10 +52,16 @@ clean:
 	rm -rf $(FRONTEND_DIR)/.vite
 	find . -name "*.log" -type f -delete
 
-# 🧾 Muestra ayuda general
+# ============================================================
+# 🧾 AYUDA
+# ============================================================
+
 help:
 	@echo "Comandos disponibles:"
-	@echo "  make run       → Ejecuta el servidor del frontend"
-	@echo "  make install   → Instala dependencias del frontend"
-	@echo "  make clean     → Limpia cachés y builds"
-	@echo "  make help      → Muestra este mensaje"
+	@echo "  make compose-up     → Levanta backend + MySQL (Docker)"
+	@echo "  make compose-down   → Detiene y limpia contenedores"
+	@echo "  make reset-db       → Reinicia la base de datos MySQL"
+	@echo "  make logs           → Muestra logs del backend"
+	@echo "  make run            → Ejecuta el frontend"
+	@echo "  make install        → Instala dependencias del frontend"
+	@echo "  make clean          → Limpia builds y cachés"

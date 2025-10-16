@@ -1,0 +1,33 @@
+version: '3.9'
+
+services:
+  backend:
+    build: ./backend
+    container_name: agenda-backend
+    env_file:
+      - .env
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    command: flask run --host=0.0.0.0
+    volumes:
+      - ./backend:/app
+
+  db:
+    image: mysql:8.0
+    container_name: agenda-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: agenda_inteligente
+      MYSQL_USER: agenda_user
+      MYSQL_PASSWORD: agenda123
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./backups:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
