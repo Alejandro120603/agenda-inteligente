@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail
+set -eu
 
 # Variables con valores por defecto para facilitar pruebas locales.
 # Respetamos primero las variables DB_* declaradas por ``env_file``; si no
@@ -15,17 +15,14 @@ export DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME
 
 printf '⏳ Esperando a que MySQL (%s:%s) esté listo...\n' "$DB_HOST" "$DB_PORT"
 
-# Reintento exponencial leve para manejar reinicios lentos de InnoDB.
 attempt=1
-until python - <<'PY'
-import os
+while true; do
+  if python - "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASSWORD" "$DB_NAME" <<'PY'; then
+import sys
 import pymysql
 
-host = os.environ["DB_HOST"]
-port = int(os.environ["DB_PORT"])
-user = os.environ["DB_USER"]
-password = os.environ["DB_PASSWORD"]
-database = os.environ["DB_NAME"]
+host, port, user, password, database = sys.argv[1:6]
+port = int(port)
 
 try:
     conn = pymysql.connect(
@@ -36,19 +33,20 @@ try:
         database=database,
         connect_timeout=3,
     )
-except pymysql.err.OperationalError:
-    raise SystemExit(1)
+except pymysql.MySQLError:
+    sys.exit(1)
 else:
     conn.close()
 PY
+    break
+  fi
 
-do
   sleep_duration=$((attempt < 5 ? attempt * 2 : 10))
   printf '   ↻ Base de datos no disponible todavía (intento %s). Reintentando en %s s...\n' "$attempt" "$sleep_duration"
   sleep "$sleep_duration"
   attempt=$((attempt + 1))
 done
 
-printf '✅ MySQL disponible, iniciando Flask...\n'
+printf '✅ Conexión establecida con la base de datos\n'
 
 exec flask --app app run --host=0.0.0.0
