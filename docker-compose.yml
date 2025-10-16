@@ -25,7 +25,7 @@ services:
       - "5000:5000"
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_started   # Espera a que la DB inicie, sin depender del healthcheck
     volumes:
       - ./backend:/app
     networks:
@@ -35,30 +35,30 @@ services:
   # 🗄️ Base de datos MySQL
   # ==========================================================
   db:
-    image: mysql:8.0.32
+    image: mysql:8.0.33
     container_name: agenda-db
     restart: always
-    command: --default-authentication-plugin=mysql_native_password
+    command: ["mysqld", "--default-authentication-plugin=mysql_native_password", "--innodb-force-recovery=1"]
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: agenda_inteligente
       MYSQL_USER: agenda_user
       MYSQL_PASSWORD: agenda123
     ports:
-      - "3310:3306"   # 👈 Puerto externo diferente (no interfiere con PIDI ni Contador)
-    # Healthcheck proactivo: se autentica contra MySQL en vez de solo abrir el puerto.
-    # Esto evita marcar el servicio como healthy antes de que termine la inicialización de InnoDB.
+      - "3310:3306"   # Puerto externo → interno
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uagenda_user -pagenda123 --silent"]
-      interval: 10s      # Revisa el estado cada 10 segundos
-      timeout: 5s        # Considera fallo si la respuesta tarda más de 5 segundos
-      retries: 12        # Da ~2 minutos para inicializaciones largas en discos lentos
-      start_period: 30s  # Respeta el tiempo que MySQL necesita para preparar /var/lib/mysql
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -prootpass --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
     volumes:
       - ./backups:/docker-entrypoint-initdb.d
       - db_data:/var/lib/mysql
     networks:
       - agenda_network
+
+
 
 # ============================================================
 # 🧩 Redes y Volúmenes
@@ -69,3 +69,4 @@ volumes:
 networks:
   agenda_network:
     driver: bridge
+
