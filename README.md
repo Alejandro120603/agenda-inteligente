@@ -16,8 +16,8 @@ Plataforma de gestión de tiempo y reuniones compuesta por un backend Flask y un
 
 ## Correcciones aplicadas
 
-1. **Credenciales robustas**: se actualizaron `MYSQL_ROOT_PASSWORD` y `MYSQL_PASSWORD` a valores que cumplen la política de MySQL (`RootPass123@` y `Agenda123@`). El archivo `backend/.env` quedó alineado con estas credenciales para que Flask se conecte correctamente.
-2. **Inicialización consistente**: se dejó fijado el montaje de `./backend/models` en `/docker-entrypoint-initdb.d` (solo lectura) y se usa un volumen nombrado `mysql_data` para preservar el datadir entre reinicios.
+1. **Credenciales robustas**: se actualizaron `MYSQL_ROOT_PASSWORD` y `MYSQL_PASSWORD` a valores que cumplen la política de MySQL (`RootPass123@` y `Agenda2025!`). Tanto Docker Compose como `backend/.env` leen ahora las mismas variables para que Flask se conecte correctamente.
+2. **Inicialización consistente**: los scripts viven en `./init_db` (solo lectura dentro del contenedor) y se usa un volumen nombrado `mysql_data` para preservar el datadir entre reinicios.
 3. **Healthcheck confiable**: el `docker-compose.yml` ahora usa el nuevo password de root en el `mysqladmin ping`, evitando falsos negativos.
 4. **Verificación automática**: se añadió el script `scripts/check_db.sh` (expuesto también como `make check-db`) para listar bases y tablas, devolviendo código de salida distinto de cero ante cualquier error.
 
