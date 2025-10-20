@@ -19,7 +19,10 @@ def create_app():
     db.init_app(app)
 
     from .routes import main
+    from backend.routes.google_events import google_events_bp
+
     app.register_blueprint(main)
+    app.register_blueprint(google_events_bp)
 
     with app.app_context():
         db.create_all()  # 👈 ESTA LÍNEA CREA LAS TABLAS
