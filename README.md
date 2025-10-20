@@ -40,6 +40,18 @@ Al iniciar los contenedores deberías ver, en los logs del backend, un flujo sim
 
 Los mensajes indican claramente si MySQL todavía no acepta conexiones, si hubo un problema de credenciales (`🚫 Credenciales rechazadas por MySQL`) o si se alcanzó el tiempo máximo de espera (`⛔️ Tiempo de espera agotado esperando la base de datos.`). Una vez establecida la conexión de prueba se inicia Flask y deberías ver el mensaje `Running on http://0.0.0.0:5000` en los logs.
 
+### Diagnóstico si la API no arranca
+
+Si el backend quedara reiniciando, revisa primero que el servicio de base de datos esté saludable y que el nombre DNS `db` se resuelva desde el contenedor del backend:
+
+```bash
+docker compose ps
+docker compose exec backend getent hosts db
+docker compose logs -n 100 db
+```
+
+Un resultado vacío o un error `Name or service not known` en `getent` indica que el contenedor de la base de datos no está disponible en la red de Docker Compose. Ejecuta `docker compose down -v` y vuelve a levantar todo con `make compose-up`. El script `entrypoint.sh` del backend ahora distingue entre problemas de DNS, conexiones rechazadas y credenciales inválidas, por lo que los logs indicarán con claridad en qué punto falla la conexión.
+
 ### Endpoints
 - Backend disponible en: [http://localhost:5000](http://localhost:5000)
 - Endpoint de eventos de Google: [http://localhost:5000/api/google/events](http://localhost:5000/api/google/events)
