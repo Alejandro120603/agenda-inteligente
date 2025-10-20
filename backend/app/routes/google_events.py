@@ -1,10 +1,73 @@
 from datetime import datetime
+import os
+import traceback
 from typing import Any, Dict, List
+from urllib.parse import urlencode
 
 import requests
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 
 bp = Blueprint("google_events", __name__, url_prefix="/api/google")
+
+
+@bp.route("/auth", methods=["GET"])
+def initialize_google_oauth():
+    """Devuelve la URL de autorización de Google OAuth."""
+    try:
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
+        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+
+        missing_vars = [
+            name
+            for name, value in (
+                ("GOOGLE_CLIENT_ID", client_id),
+                ("GOOGLE_CLIENT_SECRET", client_secret),
+                ("GOOGLE_REDIRECT_URI", redirect_uri),
+            )
+            if not value
+        ]
+
+        if missing_vars:
+            raise RuntimeError(
+                "Faltan variables de entorno requeridas: " + ", ".join(missing_vars)
+            )
+
+        scope = request.args.get(
+            "scope",
+            "https://www.googleapis.com/auth/calendar.readonly",
+        )
+        state = request.args.get("state")
+
+        query_params = {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": scope,
+            "access_type": "offline",
+            "include_granted_scopes": "true",
+            "prompt": "consent",
+        }
+        if state:
+            query_params["state"] = state
+
+        auth_url = (
+            "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(query_params)
+        )
+
+        return jsonify({"auth_url": auth_url}), 200
+    except Exception as exc:  # pylint: disable=broad-except
+        error_message = f"Error al iniciar OAuth de Google: {exc}"
+        traceback_str = traceback.format_exc()
+        current_app.logger.error("%s\n%s", error_message, traceback_str)
+        print(error_message, traceback_str, sep="\n", flush=True)
+        return (
+            jsonify({
+                "error": "OAuth init failed",
+                "details": str(exc),
+            }),
+            500,
+        )
 
 
 def _normalize_event(event: Dict[str, Any]) -> Dict[str, Any]:
