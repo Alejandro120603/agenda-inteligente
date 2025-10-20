@@ -7,6 +7,7 @@ python <<'PY'
 from __future__ import annotations
 
 import os
+import socket
 import sys
 import time
 
@@ -33,37 +34,55 @@ print(
 
 while True:
     remaining = max(0, int(deadline - time.time()))
+    print(
+        f"  ↳ Intento {attempt}: apertura de conexión (timeout=5s, tiempo restante ~{remaining}s)",
+        flush=True,
+    )
+
     try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
         print(
-            f"  ↳ Intento {attempt}: apertura de conexión (timeout=5s, tiempo restante ~{remaining}s)",
-            flush=True,
-        )
-        connection = pymysql.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database or None,
-            port=port,
-            connect_timeout=5,
-        )
-    except pymysql_err.OperationalError as exc:
-        error_code = exc.args[0] if exc.args else None
-        if error_code == 1045:
-            message = "🚫 Credenciales rechazadas por MySQL"
-        elif error_code in {2002, 2003} or "Connection refused" in str(exc):
-            message = "⚠️ MySQL aún no acepta conexiones (connection refused)"
-        else:
-            message = "⚠️ Error operacional al conectar con MySQL"
-        print(f"{message}: {exc}", flush=True)
-    except Exception as exc:  # pylint: disable=broad-except
-        print(
-            f"⚠️ Error inesperado al conectar con MySQL: {exc.__class__.__name__}: {exc}",
+            f"❓ DNS aún no resuelve '{host}': {exc}",
             flush=True,
         )
     else:
-        connection.close()
-        print("✅ Base de datos disponible, conexión de prueba cerrada.", flush=True)
-        break
+        addresses = sorted({info[4][0] for info in infos})
+        if addresses:
+            print(
+                f"     ↳ DNS resuelto: {', '.join(addresses)}",
+                flush=True,
+            )
+
+        try:
+            connection = pymysql.connect(
+                host=host,
+                user=user,
+                password=password,
+                database=database or None,
+                port=port,
+                connect_timeout=5,
+            )
+        except pymysql_err.OperationalError as exc:
+            error_code = exc.args[0] if exc.args else None
+            message = "⚠️ Error operacional al conectar con MySQL"
+            details = str(exc)
+            if error_code == 1045:
+                message = "🚫 Credenciales rechazadas por MySQL"
+            elif "[Errno 111]" in details or "Connection refused" in details:
+                message = "⚠️ MySQL aún no acepta conexiones (connection refused)"
+            elif "[Errno -2]" in details or "Name or service not known" in details:
+                message = "❓ DNS resuelto pero MySQL no es alcanzable"
+            print(f"{message}: {exc}", flush=True)
+        except Exception as exc:  # pylint: disable=broad-except
+            print(
+                f"⚠️ Error inesperado al conectar con MySQL: {exc.__class__.__name__}: {exc}",
+                flush=True,
+            )
+        else:
+            connection.close()
+            print("✅ Base de datos disponible, conexión de prueba cerrada.", flush=True)
+            break
 
     if time.time() >= deadline:
         print("⛔️ Tiempo de espera agotado esperando la base de datos.", flush=True)
