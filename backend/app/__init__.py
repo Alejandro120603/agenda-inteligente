@@ -21,8 +21,8 @@ def create_app():
     db.init_app(app)
     CORS(app)
 
-    from app.routes import bp as main_bp
-    from app.routes.google_events import bp as google_bp
+    from .routes import bp as main_bp
+    from .routes.google_events import bp as google_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(google_bp)
