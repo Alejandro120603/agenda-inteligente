@@ -32,6 +32,11 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    networks:
+      default:
+        aliases:
+          # 🔗 Alias explícito para que otros servicios resuelvan "db"
+          - db
 
   # ============================================================
   # 🧠 Servicio de backend Flask
