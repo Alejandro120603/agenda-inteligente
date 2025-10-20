@@ -55,3 +55,31 @@ Un resultado vacío o un error `Name or service not known` en `getent` indica qu
 ### Endpoints
 - Backend disponible en: [http://localhost:5000](http://localhost:5000)
 - Endpoint de eventos de Google: [http://localhost:5000/api/google/events](http://localhost:5000/api/google/events)
+
+### Configuración de Google OAuth
+
+Para habilitar el flujo de autenticación con Google Calendar es necesario
+proporcionar las credenciales del proyecto en Google Cloud Console. Crea un
+archivo `.env` en la raíz del proyecto (misma carpeta donde está
+`docker-compose.yml`) con el siguiente contenido:
+
+```
+GOOGLE_CLIENT_ID=tu-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=tu-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:5000/api/google/callback
+```
+
+> ⚠️ Ajusta `GOOGLE_REDIRECT_URI` para que coincida con la URI de redirección
+> autorizada configurada en tu credencial OAuth de Google.
+
+Cuando levantes los contenedores con `docker compose up -d`, Docker inyectará
+estas variables en el servicio `agenda-backend`. Si alguna falta, el backend
+registrará en logs un mensaje como el siguiente y responderá con HTTP 500 al
+consultar `/api/google/auth`:
+
+```
+ERROR in google_events: Variables obligatorias para Google OAuth ausentes: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+```
+
+En el frontend verás un mensaje de error tipo “Failed to fetch” hasta que las
+credenciales estén configuradas correctamente.
