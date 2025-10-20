@@ -1,11 +1,13 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 
 db = SQLAlchemy()
+
 
 def create_app():
     app = Flask(__name__)
@@ -17,15 +19,16 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     db.init_app(app)
+    CORS(app)
 
-    from .routes import main
-    from backend.routes.google_events import google_events_bp
+    from app.routes import bp as main_bp
+    from app.routes.google_events import bp as google_bp
 
-    app.register_blueprint(main)
-    app.register_blueprint(google_events_bp)
+    app.register_blueprint(main_bp)
+    app.register_blueprint(google_bp)
 
     with app.app_context():
-        db.create_all()  # 👈 ESTA LÍNEA CREA LAS TABLAS
+        db.create_all()
         print("✅ Tablas creadas en la base de datos")
 
     return app
