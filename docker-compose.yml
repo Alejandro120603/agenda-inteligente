@@ -42,16 +42,18 @@ services:
       dockerfile: Dockerfile
     container_name: agenda-backend
     restart: always
-    env_file:
-      - ./backend/.env
     volumes:
       - ./backend:/app
     ports:
       - "5000:5000"
-    entrypoint: ["/app/entrypoint.sh"]
     depends_on:
-      db:
-        condition: service_healthy
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: agenda_user
+      DB_PASSWORD: agenda123
+      DB_NAME: agenda_inteligente
 
 # ============================================================
 # 💾 Volúmenes persistentes
