@@ -16,11 +16,13 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: agenda_inteligente
+      MYSQL_USER: agenda_user
+      MYSQL_PASSWORD: agenda123
     volumes:
+      # ✅ Volumen nombrado (ya no usa ./db/data)
       - db-data:/var/lib/mysql
+      # 📂 Carpeta opcional con scripts de inicialización (.sql)
       - ./db/init:/docker-entrypoint-initdb.d:ro
     ports:
       - "3307:3306"
@@ -33,6 +35,7 @@ services:
     networks:
       default:
         aliases:
+          # 🔗 Alias explícito para que otros servicios resuelvan "db"
           - db
 
   # ============================================================
@@ -51,9 +54,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    env_file:
-      - .env   # 👈 lee todas las variables desde la raíz
     environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: agenda_user
+      DB_PASSWORD: agenda123
+      DB_NAME: agenda_inteligente
       DB_MAX_WAIT: 120
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Se requiere GOOGLE_CLIENT_ID (configúralo en .env o en el entorno de docker compose)}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Se requiere GOOGLE_CLIENT_SECRET (configúralo en .env o en el entorno de docker compose)}
