@@ -10,28 +10,43 @@ from flask import Blueprint, jsonify, request, current_app
 bp = Blueprint("google_events", __name__, url_prefix="/api/google")
 
 
+def _get_google_oauth_settings() -> Dict[str, str]:
+    """Obtiene la configuración necesaria para Google OAuth desde config o env."""
+    required_keys = (
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "GOOGLE_REDIRECT_URI",
+    )
+    settings: Dict[str, str] = {}
+    missing: List[str] = []
+
+    for key in required_keys:
+        value = current_app.config.get(key) or os.getenv(key)
+        if value:
+            settings[key] = value
+        else:
+            missing.append(key)
+
+    if missing:
+        current_app.logger.error(
+            "Variables obligatorias para Google OAuth ausentes: %s",
+            ", ".join(missing),
+        )
+        raise RuntimeError(
+            "Faltan variables de configuración requeridas: " + ", ".join(missing)
+        )
+
+    return settings
+
+
 @bp.route("/auth", methods=["GET"])
 def initialize_google_oauth():
     """Devuelve la URL de autorización de Google OAuth."""
     try:
-        client_id = os.getenv("GOOGLE_CLIENT_ID")
-        client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
-
-        missing_vars = [
-            name
-            for name, value in (
-                ("GOOGLE_CLIENT_ID", client_id),
-                ("GOOGLE_CLIENT_SECRET", client_secret),
-                ("GOOGLE_REDIRECT_URI", redirect_uri),
-            )
-            if not value
-        ]
-
-        if missing_vars:
-            raise RuntimeError(
-                "Faltan variables de entorno requeridas: " + ", ".join(missing_vars)
-            )
+        oauth_settings = _get_google_oauth_settings()
+        client_id = oauth_settings["GOOGLE_CLIENT_ID"]
+        _ = oauth_settings["GOOGLE_CLIENT_SECRET"]  # Solo validamos su presencia.
+        redirect_uri = oauth_settings["GOOGLE_REDIRECT_URI"]
 
         scope = request.args.get(
             "scope",
@@ -53,6 +68,10 @@ def initialize_google_oauth():
 
         auth_url = (
             "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(query_params)
+        )
+
+        current_app.logger.info(
+            "Generada URL de OAuth de Google con redirect_uri=%s", redirect_uri
         )
 
         return jsonify({"auth_url": auth_url}), 200

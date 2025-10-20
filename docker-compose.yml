@@ -61,6 +61,9 @@ services:
       DB_PASSWORD: agenda123
       DB_NAME: agenda_inteligente
       DB_MAX_WAIT: 120
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Se requiere GOOGLE_CLIENT_ID (configúralo en .env o en el entorno de docker compose)}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Se requiere GOOGLE_CLIENT_SECRET (configúralo en .env o en el entorno de docker compose)}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:?Se requiere GOOGLE_REDIRECT_URI (configúralo en .env o en el entorno de docker compose)}
 
 # ============================================================
 # 💾 Volúmenes persistentes
