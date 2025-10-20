@@ -37,7 +37,9 @@ services:
   # 🧠 Servicio de backend Flask
   # ============================================================
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: agenda-backend
     restart: always
     env_file:
@@ -46,6 +48,7 @@ services:
       - ./backend:/app
     ports:
       - "5000:5000"
+    entrypoint: ["/app/entrypoint.sh"]
     depends_on:
       db:
         condition: service_healthy
