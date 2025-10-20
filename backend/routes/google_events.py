@@ -1,4 +1,4 @@
-from app.routes.google_events import bp as bp
+from ..app.routes.google_events import bp as bp
 
 # Alias para retrocompatibilidad con importaciones anteriores
 google_events_bp = bp
