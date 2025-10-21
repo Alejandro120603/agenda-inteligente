@@ -1,9 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 // Hook personalizado para manejar la lista de eventos en memoria.
 // Se inicializa con algunos eventos de ejemplo y expone utilidades para añadir nuevos.
 export default function useEvents() {
-  const [events, setEvents] = useState(() => [
+  const [localEvents, setLocalEvents] = useState(() => [
     {
       id: 1,
       title: "Reunión con equipo",
@@ -17,10 +17,11 @@ export default function useEvents() {
       description: "Chequeo de rutina",
     },
   ]);
+  const [externalEvents, setExternalEvents] = useState([]);
 
   // Función para añadir un evento generando un identificador simple basado en la fecha actual.
   const addEvent = useCallback((eventData) => {
-    setEvents((current) => [
+    setLocalEvents((current) => [
       ...current,
       {
         id: Date.now(),
@@ -29,5 +30,14 @@ export default function useEvents() {
     ]);
   }, []);
 
-  return { events, addEvent };
+  const events = useMemo(
+    () => [...externalEvents, ...localEvents],
+    [externalEvents, localEvents],
+  );
+
+  const replaceExternalEvents = useCallback((newEvents) => {
+    setExternalEvents(newEvents);
+  }, []);
+
+  return { events, addEvent, setExternalEvents: replaceExternalEvents };
 }
