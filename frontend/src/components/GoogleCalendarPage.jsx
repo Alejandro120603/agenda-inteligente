@@ -4,8 +4,7 @@ import {
   useGoogleLogin,
 } from "@react-oauth/google";
 
-const clientId =
-  "1099030842105-m1bi5dq2l91f0i6ic4to7kmt6kdq3bpa.apps.googleusercontent.com";
+import { GOOGLE_CLIENT_ID } from "../config";
 
 const fetchGoogleEvents = async (accessToken, setState) => {
   const { setLoading, setError, setEvents } = setState;
@@ -139,8 +138,20 @@ const GoogleCalendarContent = () => {
 };
 
 const GoogleCalendarPage = () => {
+  if (!GOOGLE_CLIENT_ID) {
+    return (
+      <div className="min-h-screen bg-slate-100 py-12">
+        <div className="mx-auto max-w-xl rounded-xl bg-white p-8 text-center shadow">
+          <p className="text-sm text-slate-600">
+            Configura <code>VITE_GOOGLE_CLIENT_ID</code> para habilitar esta vista.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <GoogleOAuthProvider clientId={clientId}>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <div className="min-h-screen bg-slate-100 py-12">
         <GoogleCalendarContent />
       </div>
