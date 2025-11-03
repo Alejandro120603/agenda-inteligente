@@ -1,42 +1,12 @@
-# ============================================
-# 🚫 Ignorar dependencias y builds temporales
-# ============================================
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
 
-# Dependencias
-node_modules/
-package-lock.json
+# SQLite journaling files
+*.db-journal
+*.db-wal
+*.db-shm
 
-# Archivos de build
-dist/
-build/
-
-# Archivos de entorno local
-.env
-.env.local
-.env.development
-.env.production
-
-# Configuraciones del editor
-.vscode/
-.idea/
-*.swp
-
-# Archivos del sistema
-.DS_Store
-Thumbs.db
-
-# Logs y temporales
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-*.log
-
-# Cachés
-.cache/
-.vite/
-coverage/
-
-
-echo "__pycache__/" >> .gitignore
-git rm -r --cached backend/__pycache__ backend/routes/__pycache__ backend/app/__pycache__
+# Local data folder
+/data/
