@@ -1,55 +1,32 @@
-# ============================================================
-# 📅 Makefile — Proyecto Agenda Inteligente
-# ------------------------------------------------------------
-# Comandos útiles:
-#   make run            → Ejecuta el frontend (Vite)
-#   make install        → Instala dependencias del frontend
-#   make clean          → Limpia cachés del proyecto
-#   make compose-up     → Levanta la base de datos con Docker
-#   make compose-down   → Detiene y elimina contenedores/volúmenes
-#   make logs           → Muestra logs de la base de datos
-#   make help           → Muestra los comandos disponibles
-# ============================================================
+DB_PATH := data/app.db
 
-# 📂 Rutas principales
-FRONTEND_DIR = frontend
+.PHONY: db-init db-open db-clean db-dump db-backup help
 
-.PHONY: run install clean compose-up compose-down logs help
+help: ## Show available commands
+	@echo "Commands:"; grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/: ##/' | awk 'BEGIN {FS="##"}; {printf "  %-20s %s\n", $$1, $$2}'
 
-# 🧠 Inicia el servidor de desarrollo (Vite)
-run:
-	cd $(FRONTEND_DIR) && npm run dev
+db-init: ## Create/refresh the local SQLite DB from schema + seed
+	@mkdir -p data
+	@rm -f $(DB_PATH)
+	sqlite3 $(DB_PATH) < db/schema.sql
+	sqlite3 $(DB_PATH) < db/seed.sql
+	@echo "✅ SQLite ready at $(DB_PATH)"
 
-# 📦 Instala dependencias del frontend
-install:
-	cd $(FRONTEND_DIR) && npm install
+db-open: ## Open the DB REPL
+	@test -f $(DB_PATH) || (echo "DB not found. Run: make db-init" && exit 1)
+	sqlite3 $(DB_PATH)
 
-# 🧹 Limpia archivos de build y cachés
-clean:
-	rm -rf $(FRONTEND_DIR)/node_modules
-	rm -rf $(FRONTEND_DIR)/dist
-	rm -rf $(FRONTEND_DIR)/.vite
-	find . -name "*.log" -type f -delete
+db-clean: ## Remove the local DB
+	@rm -f $(DB_PATH)
+	@echo "🧹 Removed $(DB_PATH)"
 
-# 🐳 Levanta el stack de Docker (DB)
-compose-up:
-	docker compose up -d --build
+db-dump: ## Print a full SQL dump to stdout
+	@test -f $(DB_PATH) || (echo "DB not found. Run: make db-init" && exit 1)
+	sqlite3 $(DB_PATH) ".dump"
 
-# 🧱 Detiene y elimina contenedores y volúmenes
-compose-down:
-	docker compose down -v
-
-# 🪵 Muestra los logs de la base de datos
-logs:
-	docker logs -f agenda-db
-
-# 🧾 Muestra ayuda general
-help:
-	@echo "Comandos disponibles:"
-	@echo "  make run            → Ejecuta el servidor del frontend (Vite)"
-	@echo "  make install        → Instala dependencias del frontend"
-	@echo "  make clean          → Limpia cachés y builds"
-	@echo "  make compose-up     → Levanta la base de datos (MySQL)"
-	@echo "  make compose-down   → Detiene y limpia los contenedores"
-	@echo "  make logs           → Muestra logs del contenedor MySQL"
-	@echo "  make help           → Muestra este mensaje"
+db-backup: ## Save a timestamped backup in ./data/backups/
+	@test -f $(DB_PATH) || (echo "DB not found. Run: make db-init" && exit 1)
+	@mkdir -p data/backups
+	@ts=$$(date +"%Y-%m-%d_%H%M%S"); \
+	cp $(DB_PATH) data/backups/app_$$ts.sqlite && \
+	echo "💾 Backup: data/backups/app_$$ts.sqlite"
