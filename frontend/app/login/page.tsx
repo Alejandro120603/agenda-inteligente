@@ -30,18 +30,30 @@ export default function LoginPage() {
     setSuccessMessage(null);
 
     try {
+      // Validación temprana para evitar peticiones innecesarias al backend.
+      if (!correo.trim() || !password.trim()) {
+        setError("Debes ingresar tu correo electrónico y contraseña.");
+        return;
+      }
+
       const response = await fetch("/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ correo, contraseña: password }),
+        // Enviamos el payload con la propiedad `password` como espera el backend.
+        body: JSON.stringify({ correo, password }),
       });
 
       const data = (await response.json()) as LoginResponse;
 
       if (!response.ok || !data.ok) {
-        setError(data.message ?? "Credenciales inválidas");
+        const message =
+          data.message ??
+          (response.status === 401
+            ? "Credenciales inválidas"
+            : "No fue posible completar el inicio de sesión.");
+        setError(message);
         return;
       }
 
