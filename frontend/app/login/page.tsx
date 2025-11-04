@@ -1,5 +1,7 @@
 "use client";
 
+// Esta página se renderiza con el layout raíz minimalista, por lo que no hereda el sidebar ni el header del panel.
+
 import "./login.css"; // 👈 importamos nuestro CSS del login
 import { useState } from "react";
 

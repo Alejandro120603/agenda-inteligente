@@ -1,7 +1,9 @@
-import Calendar from "../../components/Calendar";
-import EventCard from "../../components/EventCard";
-import LoadingSpinner from "../../components/LoadingSpinner";
+// Importamos los componentes compartidos utilizando rutas relativas al nuevo grupo de rutas.
+import Calendar from "../../../components/Calendar";
+import EventCard from "../../../components/EventCard";
+import LoadingSpinner from "../../../components/LoadingSpinner";
 
+// Datos de ejemplo para los eventos del equipo mostrados en el dashboard.
 const teamEvents = [
   {
     time: "08:30",
@@ -29,6 +31,7 @@ const teamEvents = [
 export default function DashboardPage() {
   return (
     <div className="space-y-8">
+      {/* Introducción al módulo con un resumen del objetivo de la sección. */}
       <section>
         <h2 className="text-3xl font-semibold text-gray-900">Agenda detallada</h2>
         <p className="mt-1 text-sm text-gray-500">
@@ -36,6 +39,7 @@ export default function DashboardPage() {
         </p>
       </section>
 
+      {/* Distribución principal del dashboard con eventos y calendario. */}
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="space-y-4">
           <div className="rounded-2xl bg-white p-6 shadow-sm">
