@@ -3,7 +3,8 @@
 // Esta página se renderiza con el layout raíz minimalista, por lo que no hereda el sidebar ni el header del panel.
 
 import "./login.css"; // 👈 importamos nuestro CSS del login
-import { useState } from "react";
+import Link from "next/link";
+import { FormEvent, useState } from "react";
 
 interface LoginResponse {
   ok: boolean;
@@ -22,7 +23,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -45,6 +46,7 @@ export default function LoginPage() {
       }
 
       setSuccessMessage(`¡Bienvenido de nuevo, ${data.usuario?.nombre ?? ""}!`);
+      setPassword("");
     } catch (err) {
       console.error("Error al intentar iniciar sesión", err);
       setError("No fue posible conectar con el servidor. Inténtalo más tarde.");
@@ -98,12 +100,20 @@ export default function LoginPage() {
           </p>
         ) : null}
 
-        <p className="login-footer">
-          ¿Olvidaste tu contraseña?{" "}
-          <a href="#" className="login-link">
-            Recuperar
-          </a>
-        </p>
+        <div className="login-footer">
+          <p>
+            ¿Olvidaste tu contraseña?{" "}
+            <a href="#" className="login-link">
+              Recuperar
+            </a>
+          </p>
+          <p>
+            ¿Aún no tienes cuenta?{" "}
+            <Link href="/register" className="login-link">
+              Crear cuenta
+            </Link>
+          </p>
+        </div>
       </form>
     </div>
   );
