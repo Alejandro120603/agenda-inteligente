@@ -1,7 +1,8 @@
 "use client";
 
 import "./register.css";
-import { useState } from "react";
+import Link from "next/link";
+import { FormEvent, useState } from "react";
 
 interface RegisterResponse {
   ok: boolean;
@@ -21,7 +22,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -114,9 +115,9 @@ export default function RegisterPage() {
 
         <p className="register-footer">
           ¿Ya tienes cuenta?{" "}
-          <a href="/login" className="register-link">
+          <Link href="/login" className="register-link">
             Inicia sesión
-          </a>
+          </Link>
         </p>
       </form>
     </div>

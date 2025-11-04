@@ -45,7 +45,7 @@
 
 /* === Footer (enlace) === */
 .login-footer {
-  @apply text-sm text-gray-500 mt-4 text-center;
+  @apply text-sm text-gray-500 mt-4 text-center space-y-2;
 }
 
 .login-link {
