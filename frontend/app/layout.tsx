@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
-import Header from "../components/Header";
-import Sidebar from "../components/Sidebar";
 import "../styles/globals.css";
 import "../styles/theme.css";
 
+// Inicializamos la fuente Inter para tener una tipografía consistente en toda la aplicación.
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
+// Definimos los metadatos globales que usará Next.js para todas las páginas.
 export const metadata: Metadata = {
   title: "Agenda Inteligente",
   description: "Dashboard principal de Agenda Inteligente",
 };
 
+// Este layout raíz solo envuelve la aplicación con las etiquetas <html> y <body>.
+// Al no renderizar aquí el sidebar ni el header, evitamos que rutas especiales como /login
+// hereden el diseño del panel administrativo. Las secciones del panel tendrán su propio
+// layout dedicado dentro de un grupo de rutas.
 export default function RootLayout({
   children,
 }: {
@@ -20,14 +24,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
+      {/* Aplicamos la fuente y colores de fondo base a todo el proyecto. */}
       <body className={`${inter.className} bg-gray-50 text-gray-900`}>
-        <div className="flex min-h-screen w-full bg-gray-50">
-          <Sidebar />
-          <div className="flex min-h-screen flex-1 flex-col md:ml-64">
-            <Header />
-            <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10">{children}</main>
-          </div>
-        </div>
+        {/* Renderizamos el contenido específico de cada página o layout anidado. */}
+        {children}
       </body>
     </html>
   );
