@@ -10,3 +10,7 @@
 
 # Local data folder
 /data/
+# Node dependencies
+node_modules/
+frontend/node_modules/
+frontend/.next/
