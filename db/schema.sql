@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre          VARCHAR(100) NOT NULL,
     correo          VARCHAR(150) UNIQUE NOT NULL,
-    contraseña_hash VARCHAR(255),
+    password_hash   TEXT NOT NULL,
     zona_horaria    VARCHAR(50) DEFAULT 'America/Mexico_City',
     creado_en       DATETIME DEFAULT CURRENT_TIMESTAMP
 );

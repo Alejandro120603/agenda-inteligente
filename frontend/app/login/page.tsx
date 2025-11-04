@@ -3,15 +3,68 @@
 // Esta página se renderiza con el layout raíz minimalista, por lo que no hereda el sidebar ni el header del panel.
 
 import "./login.css"; // 👈 importamos nuestro CSS del login
-import { useState } from "react";
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+
+interface LoginResponse {
+  ok: boolean;
+  message?: string;
+  usuario?: {
+    id: number;
+    nombre: string;
+    correo: string;
+  };
+}
 
 export default function LoginPage() {
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Intento de login:", { correo, password });
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      // Validación temprana para evitar peticiones innecesarias al backend.
+      if (!correo.trim() || !password.trim()) {
+        setError("Debes ingresar tu correo electrónico y contraseña.");
+        return;
+      }
+
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        // Enviamos el payload con la propiedad `password` como espera el backend.
+        body: JSON.stringify({ correo, password }),
+      });
+
+      const data = (await response.json()) as LoginResponse;
+
+      if (!response.ok || !data.ok) {
+        const message =
+          data.message ??
+          (response.status === 401
+            ? "Credenciales inválidas"
+            : "No fue posible completar el inicio de sesión.");
+        setError(message);
+        return;
+      }
+
+      setSuccessMessage(`¡Bienvenido de nuevo, ${data.usuario?.nombre ?? ""}!`);
+      setPassword("");
+    } catch (err) {
+      console.error("Error al intentar iniciar sesión", err);
+      setError("No fue posible conectar con el servidor. Inténtalo más tarde.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -43,16 +96,36 @@ export default function LoginPage() {
           />
         </div>
 
-        <button type="submit" className="login-btn">
-          Entrar
+        <button type="submit" className="login-btn" disabled={isLoading}>
+          {isLoading ? "Ingresando..." : "Entrar"}
         </button>
 
-        <p className="login-footer">
-          ¿Olvidaste tu contraseña?{" "}
-          <a href="#" className="login-link">
-            Recuperar
-          </a>
-        </p>
+        {error ? (
+          <p className="login-error" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {successMessage ? (
+          <p className="login-success" role="status">
+            {successMessage}
+          </p>
+        ) : null}
+
+        <div className="login-footer">
+          <p>
+            ¿Olvidaste tu contraseña?{" "}
+            <a href="#" className="login-link">
+              Recuperar
+            </a>
+          </p>
+          <p>
+            ¿Aún no tienes cuenta?{" "}
+            <Link href="/register" className="login-link">
+              Crear cuenta
+            </Link>
+          </p>
+        </div>
       </form>
     </div>
   );
