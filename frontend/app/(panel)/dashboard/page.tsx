@@ -1,79 +1,78 @@
-// Importamos los componentes compartidos utilizando rutas relativas al nuevo grupo de rutas.
-import Calendar from "../../../components/Calendar";
-import EventCard from "../../../components/EventCard";
-import LoadingSpinner from "../../../components/LoadingSpinner";
+"use client";
 
-// Datos de ejemplo para los eventos del equipo mostrados en el dashboard.
-const teamEvents = [
-  {
-    time: "08:30",
-    title: "Daily Standup",
-    icon: "📈",
-    description: "Actualización rápida con todo el equipo de producto",
-    tag: "Daily",
-  },
-  {
-    time: "10:00",
-    title: "Diseño UX",
-    icon: "🎨",
-    location: "Sala de innovación",
-    description: "Revisión de wireframes para la nueva vista de tareas",
-  },
-  {
-    time: "16:00",
-    title: "Onboarding clientes",
-    icon: "🚀",
-    description: "Sesión de formación para nuevos clientes corporativos",
-    tag: "Clientes",
-  },
-];
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+// Definimos la estructura esperada para los datos del usuario almacenados en localStorage.
+interface StoredUser {
+  id: number;
+  nombre: string;
+  correo: string;
+}
 
 export default function DashboardPage() {
-  return (
-    <div className="space-y-8">
-      {/* Introducción al módulo con un resumen del objetivo de la sección. */}
-      <section>
-        <h2 className="text-3xl font-semibold text-gray-900">Agenda detallada</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Visualiza tus reuniones, asigna tareas y gestiona recordatorios desde una misma vista.
-        </p>
-      </section>
+  // useRouter nos permite redirigir a otras rutas dentro del App Router.
+  const router = useRouter();
+  // useState para guardar el primer nombre de la persona autenticada.
+  const [firstName, setFirstName] = useState<string | null>(null);
+  // useState que indica si seguimos validando la existencia de una sesión.
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-      {/* Distribución principal del dashboard con eventos y calendario. */}
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Eventos del día</h3>
-              <span className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
-                12 eventos programados
-              </span>
-            </div>
-            <div className="mt-6 space-y-4">
-              {teamEvents.map((event) => (
-                <EventCard key={event.title} {...event} />
-              ))}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 p-8 text-center text-sm text-indigo-700">
-            <p className="font-semibold">Sincroniza nuevas fuentes</p>
-            <p className="mt-1 text-indigo-600">
-              Conecta otras aplicaciones para importar automáticamente tus tareas y reuniones.
-            </p>
-          </div>
-        </div>
-        <div className="space-y-6">
-          <Calendar />
-          <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
-            <p className="text-sm font-semibold text-gray-900">Seguimiento de cargas</p>
-            <p className="mt-1 text-sm text-gray-500">
-              Procesando sincronización con Google Calendar...
-            </p>
-            <div className="mt-6 flex justify-center">
-              <LoadingSpinner />
-            </div>
-          </div>
-        </div>
+  useEffect(() => {
+    // useEffect asegura que solo accedamos a localStorage en el cliente después del montaje.
+    const storedUser = window.localStorage.getItem("userData");
+
+    if (!storedUser) {
+      // Si no hay sesión activa, redirigimos inmediatamente al formulario de login.
+      router.replace("/login");
+      setIsCheckingSession(false);
+      return;
+    }
+
+    try {
+      // Convertimos la cadena almacenada en un objeto para obtener el nombre del usuario.
+      const parsedUser = JSON.parse(storedUser) as StoredUser;
+      const parsedName = parsedUser.nombre?.trim();
+
+      if (!parsedName) {
+        // Si la información es inválida, limpiamos la sesión y regresamos al login.
+        window.localStorage.removeItem("userData");
+        router.replace("/login");
+        setIsCheckingSession(false);
+        return;
+      }
+
+      // Extraemos únicamente el primer nombre para personalizar el saludo.
+      const [name] = parsedName.split(/\s+/);
+      setFirstName(name || parsedName);
+    } catch (error) {
+      // Si ocurre un error al parsear, eliminamos los datos corruptos y redirigimos.
+      console.error("No fue posible leer la sesión almacenada", error);
+      window.localStorage.removeItem("userData");
+      router.replace("/login");
+      setIsCheckingSession(false);
+      return;
+    } finally {
+      // Terminamos el proceso de verificación independientemente del resultado.
+      setIsCheckingSession(false);
+    }
+  }, [router]);
+
+  if (isCheckingSession) {
+    // Mientras comprobamos la sesión mostramos un contenedor vacío para evitar parpadeos.
+    return <div className="min-h-[200px]" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Encabezado principal del dashboard con un mensaje de bienvenida personalizado. */}
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <h1 className="text-3xl font-semibold text-gray-900">
+          Bienvenido, {firstName ?? ""}
+        </h1>
+        <p className="mt-2 text-sm text-gray-500">
+          Gestiona tus eventos y tareas desde el menú lateral para mantener tu agenda bajo control.
+        </p>
       </section>
     </div>
   );
