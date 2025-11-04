@@ -1,6 +1,8 @@
+// Página de configuración que se beneficia del layout del panel al estar dentro del grupo (panel).
 export default function SettingsPage() {
   return (
     <div className="space-y-8">
+      {/* Título y descripción general de la vista de configuración. */}
       <section>
         <h2 className="text-3xl font-semibold text-gray-900">Configuración de cuenta</h2>
         <p className="mt-2 text-sm text-gray-500">
@@ -9,6 +11,7 @@ export default function SettingsPage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Formulario principal con los datos personales del usuario. */}
         <form className="space-y-5 rounded-2xl bg-white p-6 shadow-sm">
           <div>
             <label htmlFor="name" className="text-sm font-semibold text-gray-700">
@@ -47,6 +50,7 @@ export default function SettingsPage() {
             Guardar cambios
           </button>
         </form>
+        {/* Tarjeta secundaria con opciones de notificaciones. */}
         <div className="space-y-5 rounded-2xl bg-white p-6 shadow-sm">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Notificaciones</h3>

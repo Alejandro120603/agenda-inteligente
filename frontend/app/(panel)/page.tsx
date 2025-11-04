@@ -1,5 +1,6 @@
-import Calendar from "../components/Calendar";
-import EventCard from "../components/EventCard";
+// Importamos los componentes reutilizables del dashboard desde la carpeta global de componentes.
+import Calendar from "../../components/Calendar";
+import EventCard from "../../components/EventCard";
 
 const upcomingEvents = [
   {
@@ -59,6 +60,7 @@ const summaryCards = [
 export default function HomePage() {
   return (
     <div className="space-y-8">
+      {/* Encabezado de bienvenida que contextualiza al usuario. */}
       <section className="flex flex-col gap-2">
         <p className="text-sm font-medium text-gray-500">Bienvenido,</p>
         <h2 className="text-3xl font-semibold text-gray-900">Bienvenido, Daniela 👋</h2>
@@ -67,6 +69,7 @@ export default function HomePage() {
         </p>
       </section>
 
+      {/* Resumen en tarjetas con los principales indicadores del día. */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
           <div key={card.title} className="rounded-2xl bg-white p-5 shadow-sm">
@@ -80,6 +83,7 @@ export default function HomePage() {
         ))}
       </section>
 
+      {/* Bloque principal con la lista de eventos próximos y el calendario interactivo. */}
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="space-y-4">
           <header className="flex items-center justify-between">
