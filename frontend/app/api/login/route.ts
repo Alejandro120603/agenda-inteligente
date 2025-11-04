@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { getUserByEmail } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const correo: string | undefined = body?.correo;
-    const contrasena: string | undefined = body?.contraseña;
+    const correo: string | undefined =
+      typeof body?.correo === "string" ? body.correo.trim().toLowerCase() : undefined;
+    const contrasena: string | undefined =
+      typeof body?.contraseña === "string" ? body.contraseña : undefined;
 
     if (!correo || !contrasena) {
       return NextResponse.json(
@@ -18,7 +20,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = getUserByEmail(correo);
+    const user = await getUserByEmail(correo);
 
     if (!user) {
       return NextResponse.json(
