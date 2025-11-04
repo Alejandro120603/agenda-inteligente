@@ -6,12 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "verify:passwords": "node scripts/verify-passwords.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@types/node": "24.10.0",
