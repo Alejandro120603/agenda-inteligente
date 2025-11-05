@@ -1,49 +1,60 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-const breadcrumbs: Record<string, string> = {
-  "/": "Dashboard",
-  "/dashboard": "Agenda",
-  "/settings": "Configuración",
-};
+// Definimos el mismo contrato de datos que el utilizado en la página del dashboard.
+interface StoredUser {
+  id: number;
+  nombre: string;
+  correo: string;
+}
 
 export default function Header() {
-  const pathname = usePathname();
-  const title = breadcrumbs[pathname] ?? "Dashboard";
+  // useRouter se emplea para enviar al usuario al login si su sesión expira.
+  const router = useRouter();
+  // useState almacena el primer nombre a mostrar dentro del encabezado del panel.
+  const [firstName, setFirstName] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Este efecto se ejecuta solo en cliente para obtener los datos persistidos en localStorage.
+    const storedUser = window.localStorage.getItem("userData");
+
+    if (!storedUser) {
+      // Si no encontramos sesión, redirigimos al formulario de acceso y evitamos mostrar información residual.
+      router.replace("/login");
+      return;
+    }
+
+    try {
+      // Parseamos el JSON almacenado para extraer el nombre de la persona usuaria.
+      const parsedUser = JSON.parse(storedUser) as StoredUser;
+      const parsedName = parsedUser.nombre?.trim();
+
+      if (!parsedName) {
+        // Si el nombre no existe limpiamos la sesión y regresamos al login.
+        window.localStorage.removeItem("userData");
+        router.replace("/login");
+        return;
+      }
+
+      const [name] = parsedName.split(/\s+/);
+      setFirstName(name || parsedName);
+    } catch (error) {
+      // En caso de datos corruptos, eliminamos la sesión y redirigimos por seguridad.
+      console.error("No fue posible recuperar la sesión desde el encabezado", error);
+      window.localStorage.removeItem("userData");
+      router.replace("/login");
+    }
+  }, [router]);
 
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/80 backdrop-blur">
-      <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-10">
-        <div>
-          <nav className="text-sm text-gray-500">
-            <ol className="flex items-center gap-2">
-              <li>
-                <Link href="/" className="hover:text-gray-700">
-                  Agenda Inteligente
-                </Link>
-              </li>
-              <li className="text-gray-300">/</li>
-              <li className="font-semibold text-gray-900">{title}</li>
-            </ol>
-          </nav>
-          <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="hidden rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-gray-300 hover:bg-white sm:inline-flex">
-            Exportar agenda
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500">
-            <span className="text-lg">＋</span>
-            Nuevo evento
-          </button>
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-100">
-            <span role="img" aria-label="Usuario" className="text-lg">
-              😊
-            </span>
-          </div>
-        </div>
+      <div className="px-4 py-4 sm:px-6 lg:px-10">
+        {/* Mensaje de bienvenida limpio, sin breadcrumbs ni botones secundarios. */}
+        <h2 className="text-2xl font-semibold text-gray-900">
+          {firstName ? `Bienvenido, ${firstName}` : "Bienvenido"}
+        </h2>
       </div>
     </header>
   );
