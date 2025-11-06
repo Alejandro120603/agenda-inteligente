@@ -88,6 +88,7 @@ export interface PublicUser {
   id: number;
   nombre: string;
   correo: string;
+  zona_horaria?: string | null;
 }
 
 //
@@ -96,7 +97,7 @@ export async function getUserById(
   id: number
 ): Promise<PublicUser | undefined> {
   return getQuery<PublicUser>(
-    "SELECT id, nombre, correo FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, correo, zona_horaria FROM usuarios WHERE id = ?",
     [id]
   );
 }
