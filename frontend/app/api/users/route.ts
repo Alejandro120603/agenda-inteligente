@@ -27,6 +27,7 @@ export async function GET() {
       id: user.id,
       nombre: user.nombre,
       correo: user.correo,
+      zona_horaria: user.zona_horaria ?? null,
     });
   } catch (error) {
     console.error("[GET /api/users]", error);
