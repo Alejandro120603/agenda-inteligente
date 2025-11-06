@@ -22,7 +22,7 @@ export default function InicioPage() {
   const [fecha, setFecha] = useState("");
   const [tareas, setTareas] = useState(0);
   const [eventos, setEventos] = useState(0);
-  const [nombre, setNombre] = useState<string>("Usuario");
+  const [nombre, setNombre] = useState<string>("invitado");
 
   useEffect(() => {
     // 📅 Fecha actual
@@ -41,19 +41,27 @@ export default function InicioPage() {
     // 🧠 Obtener nombre real desde /api/users
     const fetchUser = async () => {
       try {
-        const res = await fetch("/api/users");
+        const res = await fetch("/api/users", {
+          method: "GET",
+          credentials: "include",
+        });
 
         if (!res.ok) {
+          if (res.status === 401 || res.status === 404) {
+            setNombre("invitado");
+            return;
+          }
+
           console.warn("No se pudo obtener el usuario:", res.status);
-          setNombre("Usuario");
+          setNombre("invitado");
           return;
         }
 
-        const data = await res.json();
-        setNombre(data?.nombre ? String(data.nombre) : "Usuario");
+        const data: { nombre?: string | null } = await res.json();
+        setNombre(data?.nombre ? String(data.nombre) : "invitado");
       } catch (err) {
         console.error("Error al obtener el usuario:", err);
-        setNombre("Usuario");
+        setNombre("invitado");
       }
     };
 
