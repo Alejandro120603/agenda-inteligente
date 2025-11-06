@@ -10,7 +10,8 @@ import { getUserById } from "./db";
 export async function getUserFromSession() {
   try {
     // Lee la cookie de la request actual (solo en servidor)
-    const cookie = cookies().get("user_id");
+    const cookieStore = await cookies();
+    const cookie = cookieStore.get("user_id");
 
     if (!cookie?.value) {
       console.warn("[auth] No hay cookie de sesión user_id");
