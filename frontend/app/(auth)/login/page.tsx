@@ -80,8 +80,8 @@ export default function LoginPage() {
       setSuccessMessage(`¡Bienvenido de nuevo, ${data.usuario?.nombre ?? ""}!`);
       setPassword("");
 
-      // Redirigimos al dashboard utilizando el router del App Router.
-      router.push("/dashboard");
+      // Redirigimos al panel principal utilizando el router del App Router.
+      router.push("/inicio");
     } catch (err) {
       console.error("Error al intentar iniciar sesión", err);
       setError("No fue posible conectar con el servidor. Inténtalo más tarde.");
