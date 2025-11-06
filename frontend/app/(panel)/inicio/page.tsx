@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 
-// 📅 Componente temporal de calendario
 function MiniCalendar() {
   const now = new Date();
   const month = now.toLocaleString("es-ES", { month: "long" });
@@ -23,10 +22,10 @@ export default function InicioPage() {
   const [fecha, setFecha] = useState("");
   const [tareas, setTareas] = useState(0);
   const [eventos, setEventos] = useState(0);
-  const [nombre, setNombre] = useState("usuario");
+  const [nombre, setNombre] = useState<string>("usuario");
 
   useEffect(() => {
-    // Fecha formateada
+    // 📅 Fecha actual
     const hoy = new Date();
     const opciones = {
       weekday: "long",
@@ -36,20 +35,25 @@ export default function InicioPage() {
     } as const;
     setFecha(hoy.toLocaleDateString("es-ES", opciones));
 
-    // 🔧 Datos temporales (luego vendrán del backend)
     setTareas(3);
     setEventos(2);
 
-    // 🧠 Obtener nombre guardado del usuario autenticado
-    const usuario = localStorage.getItem("user");
-    if (usuario) {
+    // 🧠 Obtener nombre real desde /api/users
+    const fetchUser = async () => {
       try {
-        const parsed = JSON.parse(usuario);
-        setNombre(parsed.nombre || parsed.username || "usuario");
-      } catch {
-        setNombre("usuario");
+        const res = await fetch("/api/users");
+        if (res.ok) {
+          const data = await res.json();
+          setNombre(data.nombre || "usuario");
+        } else {
+          console.warn("No se pudo obtener el usuario:", res.status);
+        }
+      } catch (err) {
+        console.error("Error al obtener el usuario:", err);
       }
-    }
+    };
+
+    fetchUser();
   }, []);
 
   return (
