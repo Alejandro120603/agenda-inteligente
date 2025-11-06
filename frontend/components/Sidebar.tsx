@@ -3,15 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// Barra lateral del panel con la navegación principal e iconografía definida por el equipo de diseño.
 const navigation = [
-  { name: "Inicio", href: "/", icon: "🏠" },
-  { name: "inicio", href: "/dashboard", icon: "🏠" },
-  { name: "Equipos", href: "/teams", icon: "👥" },
-  { name: "Eventos", href: "/events", icon: "📅" },
-  { name: "Tareas", href: "/tasks", icon: "✅" },
-  { name: "Integraciones", href: "/integrations", icon: "🔗" },
-  { name: "Configuración", href: "/settings", icon: "⚙️" },
-  { name: "Soporte", href: "/support", icon: "💬" },
+  { name: "Inicio", href: "/inicio", icon: "🏠" },
+  { name: "Equipos", href: "/equipos", icon: "👥" },
+  { name: "Eventos", href: "/eventos", icon: "📅" },
+  { name: "Tareas", href: "/tareas", icon: "✅" },
+  { name: "Configuración", href: "/configuracion", icon: "⚙️" },
+  { name: "Soporte", href: "/soporte", icon: "💬" },
 ];
 
 export default function Sidebar() {
