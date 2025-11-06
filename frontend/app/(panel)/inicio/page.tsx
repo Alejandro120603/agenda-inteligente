@@ -22,7 +22,7 @@ export default function InicioPage() {
   const [fecha, setFecha] = useState("");
   const [tareas, setTareas] = useState(0);
   const [eventos, setEventos] = useState(0);
-  const [nombre, setNombre] = useState<string>("usuario");
+  const [nombre, setNombre] = useState<string>("Usuario");
 
   useEffect(() => {
     // 📅 Fecha actual
@@ -42,14 +42,18 @@ export default function InicioPage() {
     const fetchUser = async () => {
       try {
         const res = await fetch("/api/users");
-        if (res.ok) {
-          const data = await res.json();
-          setNombre(data.nombre || "usuario");
-        } else {
+
+        if (!res.ok) {
           console.warn("No se pudo obtener el usuario:", res.status);
+          setNombre("Usuario");
+          return;
         }
+
+        const data = await res.json();
+        setNombre(data?.nombre ? String(data.nombre) : "Usuario");
       } catch (err) {
         console.error("Error al obtener el usuario:", err);
+        setNombre("Usuario");
       }
     };
 
@@ -60,9 +64,7 @@ export default function InicioPage() {
     <div className="flex flex-col lg:flex-row gap-6 p-6">
       {/* Sección izquierda */}
       <div className="flex-1">
-        <h1 className="text-3xl font-semibold mb-1">
-          Hola, {nombre.charAt(0).toUpperCase() + nombre.slice(1)} 👋
-        </h1>
+        <h1 className="text-3xl font-semibold mb-1">Hola, {nombre} 👋</h1>
         <p className="text-gray-600 mb-6">
           Hoy es {fecha}. Tienes{" "}
           <span className="font-medium">{tareas}</span> tareas y{" "}
