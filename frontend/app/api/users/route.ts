@@ -1,23 +1,17 @@
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getUserById } from "@/lib/db";
 
 export async function GET() {
   try {
-    const headerList = headers();
-    const cookieHeader = headerList.get("cookie") ?? "";
+    const cookieStore = cookies();
+    const userIdCookie = cookieStore.get("user_id");
 
-    const userIdCookie = cookieHeader
-      .split(";")
-      .map((cookie) => cookie.trim())
-      .find((cookie) => cookie.startsWith("user_id="));
-
-    if (!userIdCookie) {
+    if (!userIdCookie?.value) {
       return NextResponse.json({ error: "No session" }, { status: 401 });
     }
 
-    const userIdValue = userIdCookie.substring("user_id=".length);
-    const userId = Number.parseInt(userIdValue, 10);
+    const userId = Number.parseInt(userIdCookie.value, 10);
 
     if (!Number.isFinite(userId)) {
       return NextResponse.json({ error: "No session" }, { status: 401 });
