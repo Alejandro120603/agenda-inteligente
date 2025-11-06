@@ -4,6 +4,7 @@ import "./register.css";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 
+// Pantalla de registro de personas usuarias con manejo de estados y comunicación con la API.
 interface RegisterResponse {
   ok: boolean;
   message?: string;
