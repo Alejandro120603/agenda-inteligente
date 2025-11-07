@@ -38,10 +38,10 @@ export default function InicioPage() {
     setTareas(3);
     setEventos(2);
 
-    // 🧠 Obtener nombre real desde /api/users
+    // 🧠 Obtener nombre real desde /api/user
     const fetchUser = async () => {
       try {
-        const res = await fetch("/api/users", {
+        const res = await fetch("/api/user", {
           method: "GET",
           credentials: "include",
         });
@@ -57,7 +57,8 @@ export default function InicioPage() {
           return;
         }
 
-        const data: { nombre?: string | null } = await res.json();
+        const data: { id?: number; nombre?: string | null; correo?: string | null } =
+          await res.json();
         setNombre(data?.nombre ? String(data.nombre) : "invitado");
       } catch (err) {
         console.error("Error al obtener el usuario:", err);
