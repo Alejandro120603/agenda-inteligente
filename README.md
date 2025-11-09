@@ -1,85 +1,43 @@
 # Agenda Inteligente
 
 ## Descripción
-Proyecto **Agenda Inteligente**, una plataforma de gestión de tiempo y reuniones con sincronización hacia servicios externos como Outlook o Google Calendar.
+Proyecto **Agenda Inteligente**, una plataforma para gestionar reuniones y agendas compartidas. El repositorio está organizado como un monorepo que concentra el frontend (Next.js) y las utilidades de base de datos.
 
-### Estructura del proyecto
-- **Frontend:** React + Vite + TailwindCSS
-- **Backend:** Flask (Python)
-- **Docs:** Documentación técnica y funcional
+## Estructura del proyecto
+- **frontend/**: Aplicación Next.js (App Router) con TailwindCSS.
+- **db/**: Scripts de esquema y semillas para SQLite.
+- **data/**: Ubicación esperada de la base `app.db` utilizada por la aplicación (fuera de `frontend/`).
 
-### Cómo iniciar el proyecto localmente
+## Puesta en marcha rápida del frontend
 ```bash
-git clone https://github.com/TU_USUARIO/agenda-inteligente.git
-cd agenda-inteligente
+cd frontend
+npm install
+npm run dev
 ```
 
-### Reconstrucción limpia de contenedores
-Si necesitas forzar una reconstrucción del backend para asegurar que se use el `entrypoint.sh` actualizado, ejecuta los siguientes comandos:
+La aplicación espera encontrar la base de datos SQLite en `../data/app.db` (desde la carpeta `frontend/`). Si necesitas un archivo inicial puedes generar uno ejecutando el `schema.sql` dentro de `db/`.
 
-```bash
-docker compose down -v
-docker image rm agenda-inteligente-backend || true
-docker builder prune -af
-docker compose build --no-cache backend
-docker compose up -d
-```
+## Base de datos
+La tabla principal `usuarios` utilizada para autenticación y registro contiene las siguientes columnas:
 
-### Flujo de arranque del backend
-Al iniciar los contenedores deberías ver, en los logs del backend, un flujo similar al siguiente:
+| Columna         | Tipo         | Descripción                                      |
+| --------------- | ------------ | ------------------------------------------------ |
+| `id`            | INTEGER PK   | Identificador autoincremental.                   |
+| `nombre`        | VARCHAR(100) | Nombre visible de la persona usuaria (`name`).   |
+| `correo`        | VARCHAR(150) | Correo electrónico único (`email`).              |
+| `password_hash` | TEXT         | Hash de contraseña generado con `bcryptjs`.      |
+| `zona_horaria`  | VARCHAR(50)  | Zona horaria preferida (opcional).               |
+| `creado_en`     | DATETIME     | Marca de tiempo de creación (`created_at`).      |
 
-```
-⏳ Esperando a la base de datos...
-🔍 Intentando conectar a MySQL (host=db, user=agenda_user, port=3306, db=agenda_inteligente)
-  ↳ Intento 1: apertura de conexión (timeout=5s, tiempo restante ~115s)
-⚠️ MySQL aún no acepta conexiones (connection refused): (2003, "Can't connect to MySQL server on 'db' ([Errno 111] Connection refused)")
-  ↳ Intento 2: apertura de conexión (timeout=5s, tiempo restante ~113s)
-✅ Base de datos disponible, conexión de prueba cerrada.
-🚀 Iniciando Flask...
-```
+> Nota: los campos `nombre`/`correo` se exponen como `name`/`email` en las respuestas HTTP.
 
-Los mensajes indican claramente si MySQL todavía no acepta conexiones, si hubo un problema de credenciales (`🚫 Credenciales rechazadas por MySQL`) o si se alcanzó el tiempo máximo de espera (`⛔️ Tiempo de espera agotado esperando la base de datos.`). Una vez establecida la conexión de prueba se inicia Flask y deberías ver el mensaje `Running on http://0.0.0.0:5000` en los logs.
+## API (Next.js App Router)
+Los endpoints HTTP viven bajo `frontend/app/api/*/route.ts`. Cada carpeta dentro de `app/api` define una ruta; por ejemplo, el archivo `frontend/app/api/register/route.ts` responde a `POST /api/register`.
 
-### Diagnóstico si la API no arranca
+Endpoints disponibles:
 
-Si el backend quedara reiniciando, revisa primero que el servicio de base de datos esté saludable y que el nombre DNS `db` se resuelva desde el contenedor del backend:
+- `POST /api/register`: Crea una nueva cuenta.
+- `POST /api/login`: Autentica y devuelve los datos públicos del usuario.
+- `GET /api/user` y `GET /api/me`: Recuperan la información del usuario autenticado utilizando la cookie de sesión existente.
 
-```bash
-docker compose ps
-docker compose exec backend getent hosts db
-docker compose logs -n 100 db
-```
-
-Un resultado vacío o un error `Name or service not known` en `getent` indica que el contenedor de la base de datos no está disponible en la red de Docker Compose. Ejecuta `docker compose down -v` y vuelve a levantar todo con `make compose-up`. El script `entrypoint.sh` del backend ahora distingue entre problemas de DNS, conexiones rechazadas y credenciales inválidas, por lo que los logs indicarán con claridad en qué punto falla la conexión.
-
-### Endpoints
-- Backend disponible en: [http://localhost:5000](http://localhost:5000)
-- Endpoint de eventos de Google: [http://localhost:5000/api/google/events](http://localhost:5000/api/google/events)
-
-### Configuración de Google OAuth
-
-Para habilitar el flujo de autenticación con Google Calendar es necesario
-proporcionar las credenciales del proyecto en Google Cloud Console. Crea un
-archivo `.env` en la raíz del proyecto (misma carpeta donde está
-`docker-compose.yml`) con el siguiente contenido:
-
-```
-GOOGLE_CLIENT_ID=tu-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=tu-client-secret
-GOOGLE_REDIRECT_URI=http://localhost:5000/api/google/callback
-```
-
-> ⚠️ Ajusta `GOOGLE_REDIRECT_URI` para que coincida con la URI de redirección
-> autorizada configurada en tu credencial OAuth de Google.
-
-Cuando levantes los contenedores con `docker compose up -d`, Docker inyectará
-estas variables en el servicio `agenda-backend`. Si alguna falta, el backend
-registrará en logs un mensaje como el siguiente y responderá con HTTP 500 al
-consultar `/api/google/auth`:
-
-```
-ERROR in google_events: Variables obligatorias para Google OAuth ausentes: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-```
-
-En el frontend verás un mensaje de error tipo “Failed to fetch” hasta que las
-credenciales estén configuradas correctamente.
+Consulta la documentación detallada de los endpoints en el código fuente dentro de `frontend/app/api/`.
