@@ -10,7 +10,7 @@ export async function GET() {
     }
 
     const { id, nombre, correo } = user;
-    return NextResponse.json({ id, nombre, correo });
+    return NextResponse.json({ id, name: nombre, email: correo });
   } catch (error) {
     console.error("[GET /api/user]", error);
     return NextResponse.json(
