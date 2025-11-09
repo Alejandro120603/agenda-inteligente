@@ -5,14 +5,10 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 // Pantalla de registro de personas usuarias con manejo de estados y comunicación con la API.
-interface RegisterResponse {
-  ok: boolean;
-  message?: string;
-  usuario?: {
-    id: number;
-    nombre: string;
-    correo: string;
-  };
+interface RegisterSuccessResponse {
+  id: number;
+  name: string;
+  email: string;
 }
 
 export default function RegisterPage() {
@@ -35,17 +31,33 @@ export default function RegisterPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ nombre, correo, contraseña: password }),
+        body: JSON.stringify({
+          name: nombre,
+          email: correo,
+          password,
+        }),
       });
 
-      const data = (await response.json()) as RegisterResponse;
+      const data = (await response.json()) as
+        | RegisterSuccessResponse
+        | { error?: string };
 
-      if (!response.ok || !data.ok) {
-        setError(data.message ?? "No fue posible registrar al usuario");
+      if (!response.ok) {
+        const errorMessage =
+          (data as { error?: string })?.error ??
+          (response.status === 400
+            ? "Faltan datos obligatorios."
+            : response.status === 409
+            ? "El correo electrónico ya está registrado."
+            : "No fue posible registrar al usuario.");
+        setError(errorMessage);
         return;
       }
 
+      const user = data as RegisterSuccessResponse;
+
       setSuccessMessage("Tu cuenta fue creada exitosamente. ¡Ahora puedes iniciar sesión!");
+      console.info("Usuario registrado", user);
       setNombre("");
       setCorreo("");
       setPassword("");
