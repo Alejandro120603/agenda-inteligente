@@ -57,9 +57,9 @@ export default function InicioPage() {
           return;
         }
 
-        const data: { id?: number; nombre?: string | null; correo?: string | null } =
+        const data: { id?: number; name?: string | null; email?: string | null } =
           await res.json();
-        setNombre(data?.nombre ? String(data.nombre) : "invitado");
+        setNombre(data?.name ? String(data.name) : "invitado");
       } catch (err) {
         console.error("Error al obtener el usuario:", err);
         setNombre("invitado");
