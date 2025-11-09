@@ -10,10 +10,10 @@ import { FormEvent, useState } from "react";
 interface LoginResponse {
   ok: boolean;
   message?: string;
-  usuario?: {
+  user?: {
     id: number;
-    nombre: string;
-    correo: string;
+    name: string;
+    email: string;
   };
 }
 
@@ -67,17 +67,17 @@ export default function LoginPage() {
         return;
       }
 
-      if (!data.usuario) {
+      if (!data.user) {
         // Validamos que el backend haya retornado la información necesaria del usuario autenticado.
         setError("No se pudo recuperar la información de la cuenta.");
         return;
       }
 
       // Guardamos la información del usuario en localStorage para recordar la sesión.
-      window.localStorage.setItem("userData", JSON.stringify(data.usuario));
+      window.localStorage.setItem("userData", JSON.stringify(data.user));
 
       // Mostramos un mensaje de bienvenida antes de enviar a la persona usuaria al panel.
-      setSuccessMessage(`¡Bienvenido de nuevo, ${data.usuario?.nombre ?? ""}!`);
+      setSuccessMessage(`¡Bienvenido de nuevo, ${data.user?.name ?? ""}!`);
       setPassword("");
 
       // Redirigimos al panel principal utilizando el router del App Router.
