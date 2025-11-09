@@ -40,15 +40,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Éxito: devolver información pública del usuario
-    return NextResponse.json({
+    // Éxito: crear cookie de sesión y devolver información pública del usuario
+    const response = NextResponse.json({
       ok: true,
-      usuario: {
+      user: {
         id: user.id,
-        nombre: user.nombre,
-        correo: user.correo,
+        name: user.nombre,
+        email: user.correo,
       },
     });
+
+    response.cookies.set("user_id", String(user.id), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // 7 días
+    });
+
+    return response;
   } catch (error) {
     console.error("Error en el inicio de sesión:", error);
 

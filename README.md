@@ -41,3 +41,62 @@ Endpoints disponibles:
 - `GET /api/user` y `GET /api/me`: Recuperan la información del usuario autenticado utilizando la cookie de sesión existente.
 
 Consulta la documentación detallada de los endpoints en el código fuente dentro de `frontend/app/api/`.
+
+## Flujo de autenticación y cookie de sesión
+
+1. **Inicio de sesión (`POST /api/login`)**
+   - El route handler valida las credenciales y, cuando son correctas, genera una cookie `user_id` con el identificador del usuario.
+   - La cookie está configurada como `httpOnly`, `sameSite: "lax"`, `path: "/"` y `secure` en producción, con una duración de 7 días.
+   - El cuerpo de la respuesta incluye `{ ok: true, user: { id, name, email } }` para que el cliente pueda mostrar la información básica.
+
+2. **Lectura de la sesión (`GET /api/user`)**
+   - El helper `getUserFromSession` definido en `frontend/lib/auth.ts` usa `cookies().get("user_id")` para leer la cookie establecida durante el login.
+   - Si la cookie existe y el usuario está presente en la base de datos, la respuesta es `{ id, name, email }`.
+   - Si la cookie no está o el usuario no existe, el endpoint responde `401` con `{ "error": "No autenticado" }`.
+
+3. **Renderizado del saludo en `/inicio`**
+   - El componente cliente `frontend/app/(panel)/inicio/page.tsx` llama a `/api/user` cuando se monta.
+   - Con una sesión activa muestra `Hola, {name} 👋`; si la petición responde `401/404` mantiene el fallback `Hola, invitado 👋`.
+
+### Ejemplos de solicitudes/respuestas
+
+#### `POST /api/login`
+
+```http
+POST /api/login HTTP/1.1
+Content-Type: application/json
+
+{ "correo": "diego@example.com", "password": "supersecreto" }
+```
+
+```json
+{
+  "ok": true,
+  "user": {
+    "id": 1,
+    "name": "Diego",
+    "email": "diego@example.com"
+  }
+}
+```
+
+> La respuesta incluye la cookie de sesión `user_id` en el encabezado `Set-Cookie`.
+
+#### `GET /api/user` (con sesión activa)
+
+```json
+{
+  "id": 1,
+  "name": "Diego",
+  "email": "diego@example.com"
+}
+```
+
+#### `GET /api/user` (sin sesión)
+
+```http
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+
+{ "error": "No autenticado" }
+```
