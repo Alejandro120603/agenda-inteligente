@@ -480,6 +480,14 @@ export default function Page() {
           body: JSON.stringify(payload),
         });
       } else if (eventoSeleccionado) {
+        // Validamos que el identificador exista antes de enviar la petición PUT
+        if (
+          typeof eventoSeleccionado.id !== "number" ||
+          Number.isNaN(eventoSeleccionado.id)
+        ) {
+          throw new Error("Identificador de evento inválido.");
+        }
+
         response = await fetch(`/api/events/${eventoSeleccionado.id}`, {
           method: "PUT",
           credentials: "include",
@@ -571,6 +579,12 @@ export default function Page() {
       title: evento.titulo ?? "(Sin título)",
       start: evento.inicio,
       end: evento.fin,
+      extendedProps: {
+        descripcion: evento.descripcion ?? null,
+        ubicacion: evento.ubicacion ?? null,
+        tipo: evento.tipo,
+        recordatorio: evento.recordatorio ?? null,
+      },
     }));
   }, [eventos]);
 
@@ -598,10 +612,45 @@ export default function Page() {
             initialView="dayGridMonth"
             events={eventosCalendario}
             eventClick={(info) => {
-              const evento = listaEventos.find((item) => item.id === Number(info.event.id));
-              if (evento) {
-                handleOpenEdit(evento);
+              const id = Number.parseInt(info.event.id, 10);
+
+              if (Number.isNaN(id)) {
+                setFeedback({
+                  type: "error",
+                  message: "No pudimos identificar el evento seleccionado.",
+                });
+                return;
               }
+
+              const eventoExistente = listaEventos.find((item) => item.id === id);
+              const tipoDesdeCalendario = info.event.extendedProps.tipo;
+              const tipoNormalizado: TipoEvento =
+                tipoDesdeCalendario === "personal" ||
+                tipoDesdeCalendario === "equipo" ||
+                tipoDesdeCalendario === "otro"
+                  ? tipoDesdeCalendario
+                  : eventoExistente?.tipo ?? "personal";
+
+              const eventoSeleccionadoCalendario: Evento = {
+                id,
+                titulo: eventoExistente?.titulo ?? info.event.title,
+                descripcion:
+                  eventoExistente?.descripcion ?? info.event.extendedProps.descripcion ?? null,
+                inicio: eventoExistente?.inicio ?? info.event.startStr,
+                fin:
+                  eventoExistente?.fin ??
+                  info.event.endStr ??
+                  info.event.start?.toISOString() ??
+                  info.event.startStr,
+                ubicacion:
+                  eventoExistente?.ubicacion ?? info.event.extendedProps.ubicacion ?? null,
+                tipo: tipoNormalizado,
+                recordatorio:
+                  eventoExistente?.recordatorio ?? info.event.extendedProps.recordatorio ?? null,
+              };
+
+              // Abrimos el modal con los datos provenientes directamente del calendario
+              handleOpenEdit(eventoSeleccionadoCalendario);
             }}
             height={650}
             locale="es"

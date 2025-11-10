@@ -195,46 +195,9 @@ export default function InicioPage() {
     cargarEventos();
   }, [cargarEventos]);
 
-  // ✍️ Crear evento rápido al hacer clic en una fecha
-  const manejarCreacionRapida = useCallback(
-    async (info: any) => {
-      const titulo = window.prompt(
-        `Nuevo evento para el ${info.dateStr}. Ingresa un título:`
-      );
-      if (!titulo) return;
-
-      const inicio = info.dateStr.includes("T")
-        ? info.dateStr
-        : `${info.dateStr}T09:00:00`;
-      const fin = info.dateStr.includes("T")
-        ? info.dateStr
-        : `${info.dateStr}T10:00:00`;
-
-      try {
-        const respuesta = await fetch("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            titulo,
-            inicio,
-            fin,
-            tipo: "personal",
-          }),
-        });
-
-        if (!respuesta.ok) throw new Error(`Error ${respuesta.status}`);
-        await cargarEventos();
-      } catch (error) {
-        console.error("No se pudo crear el evento:", error);
-        window.alert("No fue posible crear el evento. Intenta nuevamente.");
-      }
-    },
-    [cargarEventos]
-  );
-
   const plugins = useMemo(() => [dayGridPlugin, interactionPlugin], []);
 
+  // 🛈 Este calendario funciona únicamente como visor, sin creación rápida desde la vista mensual.
   const eventosCalendario = useMemo(
     () =>
       eventos.map((evento) => ({
@@ -354,7 +317,6 @@ export default function InicioPage() {
               locale="es"
               events={eventosCalendario}
               height="auto"
-              dateClick={manejarCreacionRapida}
               eventClick={manejarClickEvento}
               headerToolbar={{
                 start: "title",
@@ -371,8 +333,8 @@ export default function InicioPage() {
         <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
           <h2 className="text-lg font-semibold mb-2">Resumen diario</h2>
           <p className="text-gray-600 text-sm">
-            Crea tus eventos personales directamente desde el calendario y
-            visualízalos aquí mismo.
+            Consulta tus eventos programados y revisa los detalles en cualquier
+            momento.
           </p>
         </div>
       </div>
@@ -400,13 +362,6 @@ export default function InicioPage() {
                   {formatearTipo(eventoSeleccionado.tipo)}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={cerrarModalEvento}
-                className="rounded-md bg-gray-100 px-3 py-1 text-sm text-gray-600 transition hover:bg-gray-200"
-              >
-                Cerrar
-              </button>
             </div>
 
             <div className="mt-6 space-y-4 text-sm text-gray-700">
@@ -442,7 +397,7 @@ export default function InicioPage() {
                 onClick={cerrarModalEvento}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
               >
-                Entendido
+                Cerrar
               </button>
             </div>
           </div>
