@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { crearClienteOAuth, guardarTokens } from "@/lib/google";
 
+export const runtime = "nodejs";
+
 const USER_ID = 1;
 
 /**
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
       `ℹ️ Tokens de Google almacenados para el usuario ${USER_ID} (${maskedToken}).`,
     );
 
-    const redirectUrl = new URL("/inicio", request.nextUrl.origin);
+    const redirectUrl = new URL("/eventos", request.nextUrl.origin);
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
     console.error("[GET /api/google/callback]", error);
