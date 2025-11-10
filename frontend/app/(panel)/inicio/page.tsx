@@ -1,11 +1,11 @@
 "use client";
+
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import "@fullcalendar/core/index.css";
-import "@fullcalendar/daygrid/index.css";
 
+// ⚠️ No importes CSS. En FullCalendar v6+ ya se inyectan automáticamente
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
   ssr: false,
 });
@@ -22,13 +22,12 @@ export default function InicioPage() {
   const [tareas, setTareas] = useState(0);
   const [eventosHoy, setEventosHoy] = useState(0);
   const [nombre, setNombre] = useState<string>("invitado");
-  const [eventosCalendario, setEventosCalendario] = useState<EventoCalendario[]>(
-    []
-  );
+  const [eventosCalendario, setEventosCalendario] = useState<EventoCalendario[]>([]);
   const [cargandoEventos, setCargandoEventos] = useState(true);
 
+  // 📅 Fecha y usuario
   useEffect(() => {
-    // 📅 Fecha actual
+    // Fecha actual en español
     const hoy = new Date();
     const opciones = {
       weekday: "long",
@@ -38,7 +37,7 @@ export default function InicioPage() {
     } as const;
     setFecha(hoy.toLocaleDateString("es-ES", opciones));
 
-    setTareas(3);
+    setTareas(3); // placeholder
 
     // 🧠 Obtener nombre real desde /api/user
     const fetchUser = async () => {
@@ -53,7 +52,6 @@ export default function InicioPage() {
             setNombre("invitado");
             return;
           }
-
           console.warn("No se pudo obtener el usuario:", res.status);
           setNombre("invitado");
           return;
@@ -71,6 +69,7 @@ export default function InicioPage() {
     fetchUser();
   }, []);
 
+  // 🔄 Cargar eventos del usuario autenticado
   const cargarEventos = useCallback(async () => {
     try {
       setCargandoEventos(true);
@@ -98,6 +97,7 @@ export default function InicioPage() {
         end: evento.fin,
       }));
 
+      // Contar los eventos de hoy
       const hoy = new Date();
       const eventosDelDia = eventosMapeados.filter((evento) => {
         if (!evento.start) return false;
@@ -120,12 +120,12 @@ export default function InicioPage() {
     cargarEventos();
   }, [cargarEventos]);
 
+  // ✍️ Crear evento rápido al hacer clic en una fecha
   const manejarCreacionRapida = useCallback(
     async (info: any) => {
       const titulo = window.prompt(
         `Nuevo evento para el ${info.dateStr}. Ingresa un título:`
       );
-
       if (!titulo) return;
 
       const inicio = info.dateStr.includes("T")
@@ -138,9 +138,7 @@ export default function InicioPage() {
       try {
         const respuesta = await fetch("/api/events", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
             titulo,
@@ -150,10 +148,7 @@ export default function InicioPage() {
           }),
         });
 
-        if (!respuesta.ok) {
-          throw new Error(`Error ${respuesta.status}`);
-        }
-
+        if (!respuesta.ok) throw new Error(`Error ${respuesta.status}`);
         await cargarEventos();
       } catch (error) {
         console.error("No se pudo crear el evento:", error);
@@ -180,6 +175,7 @@ export default function InicioPage() {
           <h2 className="text-xl font-semibold mb-4">
             Calendario interno de tus eventos
           </h2>
+
           {cargandoEventos ? (
             <p className="text-gray-500">Cargando tus eventos...</p>
           ) : (
