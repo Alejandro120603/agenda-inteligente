@@ -73,6 +73,16 @@ export function getQuery<T>(
   });
 }
 
+export function allQuery<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+  const db = ensureDatabase();
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows: T[]) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+}
+
 //
 // --- INTERFACES ---
 export interface UsuarioRow {
