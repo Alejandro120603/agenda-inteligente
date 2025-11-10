@@ -51,6 +51,37 @@ CREATE TABLE IF NOT EXISTS eventos_externos (
 );
 
 -- ============================================================
+-- Tabla: google_tokens (credenciales OAuth de Google Calendar)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS google_tokens (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id       INTEGER NOT NULL,
+    access_token  TEXT,
+    refresh_token TEXT,
+    token_expiry  DATETIME,
+    scope         TEXT,
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
+-- ============================================================
+-- Tabla: events (eventos sincronizados desde proveedores externos)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL,
+    google_id    TEXT UNIQUE,
+    title        TEXT,
+    description  TEXT,
+    start_time   DATETIME,
+    end_time     DATETIME,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
+-- ============================================================
 -- 4. Tabla: equipos
 -- ============================================================
 CREATE TABLE IF NOT EXISTS equipos (
