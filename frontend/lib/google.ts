@@ -137,11 +137,11 @@ export function extraerConfiguracionDesdeObjeto(
  * Lee el archivo local de credenciales si existe y devuelve su configuración.
  */
 export function leerCredencialesDesdeArchivo(): ConfiguracionOAuth | null {
-  try {
-    if (!fs.existsSync(CREDENTIALS_PATH)) {
-      return null;
-    }
+  if (!fs.existsSync(CREDENTIALS_PATH)) {
+    return null;
+  }
 
+  try {
     const contenido = fs.readFileSync(CREDENTIALS_PATH, "utf8");
     if (!contenido.trim()) {
       console.warn(
@@ -155,20 +155,18 @@ export function leerCredencialesDesdeArchivo(): ConfiguracionOAuth | null {
 
     if (!configuracion) {
       console.error(
-        "[google.ts] No se pudieron extraer client_id, client_secret y redirect_uri del archivo credentials/google_oauth.json.",
+        "[google.ts] No se pudieron extraer client_id, client_secret y redirect_uri del archivo credentials/google_oauth.json. Se utilizarán las variables de entorno.",
       );
-      throw new Error(
-        "No se pudieron leer las credenciales de Google desde el archivo credentials/google_oauth.json."
-      );
+      return null;
     }
 
     return configuracion;
   } catch (error) {
     console.error(
-      "[google.ts] Error al leer credentials/google_oauth.json:",
+      "[google.ts] Error al leer credentials/google_oauth.json. Se utilizarán las variables de entorno.",
       error,
     );
-    throw error;
+    return null;
   }
 }
 
@@ -182,10 +180,16 @@ export function obtenerConfiguracionOAuth(): ConfiguracionOAuth {
 
   const desdeArchivo = leerCredencialesDesdeArchivo();
   if (desdeArchivo) {
+    console.log(
+      "[google.ts] Credenciales de Google cargadas desde credentials/google_oauth.json.",
+    );
     configuracionOAuthMemorizada = desdeArchivo;
     return desdeArchivo;
   }
 
+  console.log(
+    "[google.ts] Se utilizarán las variables de entorno para configurar Google OAuth.",
+  );
   const desdeEntorno = obtenerCredencialesDesdeEntorno();
   configuracionOAuthMemorizada = desdeEntorno;
   return desdeEntorno;
