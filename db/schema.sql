@@ -116,5 +116,20 @@ CREATE INDEX IF NOT EXISTS idx_reuniones_equipo     ON reuniones_propuestas(id_e
 CREATE INDEX IF NOT EXISTS idx_participantes_reunion ON participantes_reunion(id_reunion);
 
 -- ============================================================
--- FIN DEL SCHEMA
+-- Eventos internos
 -- ============================================================
+
+
+CREATE TABLE IF NOT EXISTS eventos_internos (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_usuario      INTEGER NOT NULL,
+    titulo          VARCHAR(255) NOT NULL,
+    descripcion     TEXT,
+    inicio          DATETIME NOT NULL,
+    fin             DATETIME NOT NULL,
+    ubicacion       VARCHAR(255),
+    tipo            TEXT CHECK(tipo IN ('personal','equipo','otro')) DEFAULT 'personal',
+    recordatorio    INTEGER DEFAULT 0,  -- minutos antes del evento
+    creado_en       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
+);
