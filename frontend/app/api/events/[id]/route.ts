@@ -41,7 +41,7 @@ async function obtenerEventoDelUsuario(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await obtenerUsuarioAutenticado();
@@ -49,15 +49,16 @@ export async function PUT(
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const id = Number(params.id);
-    if (!Number.isFinite(id)) {
+    const { id } = await context.params;
+    const eventId = Number(id);
+    if (!Number.isFinite(eventId)) {
       return NextResponse.json(
         { error: "Identificador de evento inválido" },
         { status: 400 }
       );
     }
 
-    const evento = await obtenerEventoDelUsuario(id, userId);
+    const evento = await obtenerEventoDelUsuario(eventId, userId);
     if (!evento) {
       return NextResponse.json(
         { error: "Evento no encontrado" },
@@ -106,7 +107,7 @@ export async function PUT(
         ubicacion,
         tipo,
         recordatorio,
-        id,
+        eventId,
         userId,
       ]
     );
@@ -123,7 +124,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await obtenerUsuarioAutenticado();
@@ -131,15 +132,16 @@ export async function DELETE(
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const id = Number(params.id);
-    if (!Number.isFinite(id)) {
+    const { id } = await context.params;
+    const eventId = Number(id);
+    if (!Number.isFinite(eventId)) {
       return NextResponse.json(
         { error: "Identificador de evento inválido" },
         { status: 400 }
       );
     }
 
-    const evento = await obtenerEventoDelUsuario(id, userId);
+    const evento = await obtenerEventoDelUsuario(eventId, userId);
     if (!evento) {
       return NextResponse.json(
         { error: "Evento no encontrado" },
@@ -149,7 +151,7 @@ export async function DELETE(
 
     await runQuery(
       "DELETE FROM eventos_internos WHERE id = ? AND id_usuario = ?",
-      [id, userId]
+      [eventId, userId]
     );
 
     return NextResponse.json({ message: "Evento eliminado correctamente" });
