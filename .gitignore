@@ -30,3 +30,5 @@ frontend/.turbo/
 # Node dependencies
 node_modules/
 frontend/node_modules/
+
+/frontend/credentials/google_oauth.json
