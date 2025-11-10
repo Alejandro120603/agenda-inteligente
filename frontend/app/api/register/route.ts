@@ -3,72 +3,46 @@ import { createUser, getUserByEmail } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const nombre: string | undefined =
-      typeof body?.nombre === "string" ? body.nombre.trim() : undefined;
-    const correo: string | undefined =
-      typeof body?.correo === "string" ? body.correo.trim().toLowerCase() : undefined;
-    const contrasena: string | undefined =
-      typeof body?.contraseña === "string" ? body.contraseña : undefined;
+    const body = await request.json().catch(() => null);
 
-    if (!nombre || !correo || !contrasena) {
+    const name =
+      typeof body?.name === "string" ? body.name.trim() : "";
+    const emailRaw =
+      typeof body?.email === "string" ? body.email.trim() : "";
+    const password =
+      typeof body?.password === "string" ? body.password : "";
+
+    if (!name || !emailRaw || !password) {
       return NextResponse.json(
-        {
-          ok: false,
-          message: "Todos los campos son obligatorios",
-        },
+        { error: "Nombre, correo electrónico y contraseña son obligatorios." },
         { status: 400 }
       );
     }
 
-    const existingUser = await getUserByEmail(correo);
+    const email = emailRaw.toLowerCase();
 
+    const existingUser = await getUserByEmail(email);
     if (existingUser) {
       return NextResponse.json(
-        {
-          ok: false,
-          message: "El correo ya se encuentra registrado",
-        },
-        { status: 400 }
+        { error: "El correo electrónico ya está registrado." },
+        { status: 409 }
       );
     }
 
-    try {
-      const user = await createUser(nombre, correo, contrasena);
-
-      return NextResponse.json(
-        {
-          ok: true,
-          usuario: user,
-        },
-        { status: 201 }
-      );
-    } catch (error) {
-      console.error("Error al crear usuario", error);
-
-      const isUniqueConstraint =
-        error instanceof Error && /UNIQUE|constraint/i.test(error.message);
-      const message = isUniqueConstraint
-        ? "El correo ya se encuentra registrado"
-        : "No fue posible registrar al usuario";
-      const status = isUniqueConstraint ? 409 : 500;
-
-      return NextResponse.json(
-        {
-          ok: false,
-          message,
-        },
-        { status }
-      );
-    }
-  } catch (error) {
-    console.error("Error al registrar usuario", error);
+    const user = await createUser(name, email, password);
 
     return NextResponse.json(
       {
-        ok: false,
-        message: "Error interno del servidor",
+        id: user.id,
+        name: user.nombre,
+        email: user.correo,
       },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("[register] Error al crear usuario", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
       { status: 500 }
     );
   }
