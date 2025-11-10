@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EventClickArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -35,6 +36,7 @@ const esRegistroEvento = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object";
 
 export default function InicioPage() {
+  const router = useRouter();
   const [fecha, setFecha] = useState("");
   const [tareas, setTareas] = useState(0);
   const [eventosHoy, setEventosHoy] = useState(0);
@@ -44,6 +46,7 @@ export default function InicioPage() {
   const [mostrarModal, setMostrarModal] = useState(false);
   const [cerrandoModal, setCerrandoModal] = useState(false);
   const [eventoSeleccionado, setEventoSeleccionado] = useState<Evento | null>(null);
+  const [sincronizandoGoogle, setSincronizandoGoogle] = useState(false);
   const cierreModalTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // 📅 Fecha y usuario
@@ -191,6 +194,12 @@ export default function InicioPage() {
     }
   }, []);
 
+  // 🔁 Inicia el flujo de autenticación con Google Calendar
+  const manejarSincronizacionGoogle = useCallback(() => {
+    setSincronizandoGoogle(true);
+    router.push("/api/google/auth");
+  }, [router]);
+
   useEffect(() => {
     cargarEventos();
   }, [cargarEventos]);
@@ -302,6 +311,20 @@ export default function InicioPage() {
           <span className="font-medium">{tareas}</span> tareas y{" "}
           <span className="font-medium">{eventosHoy}</span> eventos para hoy.
         </p>
+
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <button
+            type="button"
+            onClick={manejarSincronizacionGoogle}
+            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
+            disabled={sincronizandoGoogle}
+          >
+            🗓️ Sincronizar con Google Calendar
+          </button>
+          {sincronizandoGoogle && (
+            <span className="text-sm text-gray-600">Sincronizando eventos...</span>
+          )}
+        </div>
 
         <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
           <h2 className="text-xl font-semibold mb-4">

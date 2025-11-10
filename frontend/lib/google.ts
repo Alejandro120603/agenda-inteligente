@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { google } from "googleapis";
 import type { Credentials, OAuth2Client } from "google-auth-library";
 import { getQuery, runQuery } from "@/lib/db";
@@ -14,12 +17,28 @@ export interface GoogleTokenRow {
   scope: string | null;
 }
 
+/**
+ * Describe la forma necesaria para inicializar el cliente OAuth2.
+ */
+export interface ConfiguracionOAuth {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
 const DEFAULT_SCOPES = [
   "https://www.googleapis.com/auth/calendar.readonly",
 ];
 
+const CREDENTIALS_PATH = path.join(
+  process.cwd(),
+  "credentials",
+  "google_oauth.json",
+);
+
 let tablaGoogleTokensCreada = false;
 let tablaEventosCreada = false;
+let configuracionOAuthMemorizada: ConfiguracionOAuth | null = null;
 
 /**
  * Obtiene los alcances solicitados a Google a partir de las variables de entorno.
@@ -40,16 +59,15 @@ export function obtenerScopes(): string[] {
 /**
  * Valida la existencia de las variables requeridas para el cliente OAuth.
  */
-export function obtenerCredencialesDesdeEntorno(): {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-} {
+export function obtenerCredencialesDesdeEntorno(): ConfiguracionOAuth {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
+    console.error(
+      "[google.ts] Faltan variables de entorno para Google OAuth. Verifica GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_REDIRECT_URI.",
+    );
     throw new Error(
       "Faltan credenciales de Google. Revisa GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_REDIRECT_URI."
     );
@@ -59,11 +77,125 @@ export function obtenerCredencialesDesdeEntorno(): {
 }
 
 /**
+ * Extrae los valores necesarios desde el contenido del archivo de credenciales.
+ */
+export function extraerConfiguracionDesdeObjeto(
+  objeto: unknown,
+): ConfiguracionOAuth | null {
+  if (!objeto || typeof objeto !== "object") {
+    return null;
+  }
+
+  const posibleDirecta = objeto as Partial<
+    ConfiguracionOAuth & { redirect_uris?: string[] }
+  >;
+
+  if (posibleDirecta.clientId && posibleDirecta.clientSecret) {
+    const redirectUri =
+      posibleDirecta.redirectUri ?? posibleDirecta.redirect_uris?.[0];
+
+    if (redirectUri) {
+      return {
+        clientId: posibleDirecta.clientId,
+        clientSecret: posibleDirecta.clientSecret,
+        redirectUri,
+      };
+    }
+  }
+
+  const posiblesClaves = ["web", "installed"] as const;
+
+  for (const clave of posiblesClaves) {
+    const seccion = (objeto as Record<string, unknown>)[clave];
+    if (!seccion || typeof seccion !== "object") {
+      continue;
+    }
+
+    const datos = seccion as Partial<
+      ConfiguracionOAuth & {
+        redirect_uris?: string[];
+        client_id?: string;
+        client_secret?: string;
+        redirect_uri?: string;
+      }
+    >;
+
+    const clientId = datos.clientId ?? datos.client_id;
+    const clientSecret = datos.clientSecret ?? datos.client_secret;
+    const redirectUri =
+      datos.redirectUri ?? datos.redirect_uris?.[0] ?? datos.redirect_uri;
+
+    if (clientId && clientSecret && redirectUri) {
+      return { clientId, clientSecret, redirectUri };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Lee el archivo local de credenciales si existe y devuelve su configuración.
+ */
+export function leerCredencialesDesdeArchivo(): ConfiguracionOAuth | null {
+  try {
+    if (!fs.existsSync(CREDENTIALS_PATH)) {
+      return null;
+    }
+
+    const contenido = fs.readFileSync(CREDENTIALS_PATH, "utf8");
+    if (!contenido.trim()) {
+      console.warn(
+        "[google.ts] El archivo credentials/google_oauth.json está vacío. Se utilizarán las variables de entorno.",
+      );
+      return null;
+    }
+
+    const datos = JSON.parse(contenido) as unknown;
+    const configuracion = extraerConfiguracionDesdeObjeto(datos);
+
+    if (!configuracion) {
+      console.error(
+        "[google.ts] No se pudieron extraer client_id, client_secret y redirect_uri del archivo credentials/google_oauth.json.",
+      );
+      throw new Error(
+        "No se pudieron leer las credenciales de Google desde el archivo credentials/google_oauth.json."
+      );
+    }
+
+    return configuracion;
+  } catch (error) {
+    console.error(
+      "[google.ts] Error al leer credentials/google_oauth.json:",
+      error,
+    );
+    throw error;
+  }
+}
+
+/**
+ * Obtiene la configuración del cliente priorizando el archivo local y luego el entorno.
+ */
+export function obtenerConfiguracionOAuth(): ConfiguracionOAuth {
+  if (configuracionOAuthMemorizada) {
+    return configuracionOAuthMemorizada;
+  }
+
+  const desdeArchivo = leerCredencialesDesdeArchivo();
+  if (desdeArchivo) {
+    configuracionOAuthMemorizada = desdeArchivo;
+    return desdeArchivo;
+  }
+
+  const desdeEntorno = obtenerCredencialesDesdeEntorno();
+  configuracionOAuthMemorizada = desdeEntorno;
+  return desdeEntorno;
+}
+
+/**
  * Construye un cliente OAuth2 listo para usarse en la integración de Google Calendar.
  */
 export function crearClienteOAuth(tokens?: Credentials): OAuth2Client {
-  const { clientId, clientSecret, redirectUri } =
-    obtenerCredencialesDesdeEntorno();
+  const { clientId, clientSecret, redirectUri } = obtenerConfiguracionOAuth();
 
   const client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 

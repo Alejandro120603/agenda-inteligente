@@ -20,12 +20,17 @@ export async function GET(request: NextRequest) {
     const oauthClient = crearClienteOAuth();
     const { tokens } = await oauthClient.getToken(code);
 
+    oauthClient.setCredentials(tokens);
     await guardarTokens(USER_ID, tokens);
+
+    console.log("✅ Tokens guardados correctamente.");
 
     const maskedToken = tokens.access_token
       ? `${tokens.access_token.slice(0, 4)}...`
       : "sin-token";
-    console.log(`✅ Tokens de Google almacenados para el usuario ${USER_ID} (${maskedToken})`);
+    console.log(
+      `ℹ️ Tokens de Google almacenados para el usuario ${USER_ID} (${maskedToken}).`,
+    );
 
     const redirectUrl = new URL("/inicio", request.nextUrl.origin);
     return NextResponse.redirect(redirectUrl);
