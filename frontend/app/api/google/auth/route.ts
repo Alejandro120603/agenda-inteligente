@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { crearClienteOAuth, obtenerScopes } from "@/lib/google";
 
+export const runtime = "nodejs";
+
 /**
  * Maneja la redirección inicial hacia Google para iniciar el flujo OAuth2.
  */
@@ -13,9 +15,10 @@ export async function GET() {
       access_type: "offline",
       scope: scopes,
       prompt: "consent",
+      include_granted_scopes: true,
     });
 
-    return NextResponse.redirect(authUrl);
+    return NextResponse.redirect(authUrl, 302);
   } catch (error) {
     console.error("[GET /api/google/auth]", error);
     return NextResponse.json(

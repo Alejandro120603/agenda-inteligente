@@ -27,7 +27,10 @@ export interface ConfiguracionOAuth {
 }
 
 const DEFAULT_SCOPES = [
-  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
+  "openid",
+  "email",
+  "profile",
 ];
 
 const CREDENTIALS_PATH = path.join(
@@ -59,21 +62,33 @@ export function obtenerScopes(): string[] {
 /**
  * Valida la existencia de las variables requeridas para el cliente OAuth.
  */
-export function obtenerCredencialesDesdeEntorno(): ConfiguracionOAuth {
+export function obtenerCredencialesDesdeEntorno(): ConfiguracionOAuth | null {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
-  if (!clientId || !clientSecret || !redirectUri) {
-    console.error(
-      "[google.ts] Faltan variables de entorno para Google OAuth. Verifica GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_REDIRECT_URI.",
+  const esCadenaValida = (valor: unknown): valor is string =>
+    typeof valor === "string" && valor.trim() !== "";
+
+  const disponibles = {
+    GOOGLE_CLIENT_ID: esCadenaValida(clientId),
+    GOOGLE_CLIENT_SECRET: esCadenaValida(clientSecret),
+    GOOGLE_REDIRECT_URI: esCadenaValida(redirectUri),
+  };
+
+  if (!disponibles.GOOGLE_CLIENT_ID || !disponibles.GOOGLE_CLIENT_SECRET || !disponibles.GOOGLE_REDIRECT_URI) {
+    console.warn(
+      "[google.ts] Variables de entorno incompletas para Google OAuth.",
+      disponibles,
     );
-    throw new Error(
-      "Faltan credenciales de Google. Revisa GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_REDIRECT_URI."
-    );
+    return null;
   }
 
-  return { clientId, clientSecret, redirectUri };
+  return {
+    clientId: clientId.trim(),
+    clientSecret: clientSecret.trim(),
+    redirectUri: redirectUri.trim(),
+  };
 }
 
 /**
@@ -137,6 +152,13 @@ export function extraerConfiguracionDesdeObjeto(
  * Lee el archivo local de credenciales si existe y devuelve su configuración.
  */
 export function leerCredencialesDesdeArchivo(): ConfiguracionOAuth | null {
+  if (process.env.NEXT_RUNTIME === "edge") {
+    console.warn(
+      "[google.ts] No se pueden leer credenciales desde archivo en Edge Runtime."
+    );
+    return null;
+  }
+
   if (!fs.existsSync(CREDENTIALS_PATH)) {
     return null;
   }
@@ -178,6 +200,19 @@ export function obtenerConfiguracionOAuth(): ConfiguracionOAuth {
     return configuracionOAuthMemorizada;
   }
 
+  const desdeEntorno = obtenerCredencialesDesdeEntorno();
+  if (desdeEntorno) {
+    console.log(
+      "[google.ts] Credenciales de Google obtenidas desde variables de entorno.",
+    );
+    configuracionOAuthMemorizada = desdeEntorno;
+    return desdeEntorno;
+  }
+
+  console.warn(
+    "[google.ts] No se pudieron obtener credenciales desde variables de entorno. Se intentará leer credentials/google_oauth.json.",
+  );
+
   const desdeArchivo = leerCredencialesDesdeArchivo();
   if (desdeArchivo) {
     console.log(
@@ -187,12 +222,10 @@ export function obtenerConfiguracionOAuth(): ConfiguracionOAuth {
     return desdeArchivo;
   }
 
-  console.log(
-    "[google.ts] Se utilizarán las variables de entorno para configurar Google OAuth.",
-  );
-  const desdeEntorno = obtenerCredencialesDesdeEntorno();
-  configuracionOAuthMemorizada = desdeEntorno;
-  return desdeEntorno;
+  const mensajeError =
+    "Faltan credenciales de Google. Verifica GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET y GOOGLE_REDIRECT_URI o configura credentials/google_oauth.json.";
+  console.error("[google.ts]", mensajeError);
+  throw new Error(mensajeError);
 }
 
 /**
