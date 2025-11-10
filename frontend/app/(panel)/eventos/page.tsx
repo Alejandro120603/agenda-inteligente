@@ -44,6 +44,17 @@ type ModalEventoProps = {
   feedback: { type: "success" | "error"; message: string } | null;
 };
 
+type EventosState = Evento[] | { eventos: Evento[] };
+
+const esEventosWrapper = (value: unknown): value is { eventos: Evento[] } => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const possibleWrapper = value as { eventos?: unknown };
+  return Array.isArray(possibleWrapper.eventos);
+};
+
 // Convierte un string ISO en un valor válido para input datetime-local (ajustado a zona local)
 const toLocalInputValue = (value: string) => {
   const date = new Date(value);
@@ -380,7 +391,7 @@ const ListaEventos = ({
 };
 
 export default function Page() {
-  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [eventos, setEventos] = useState<EventosState>(() => []);
   const [loadingEventos, setLoadingEventos] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
@@ -402,8 +413,15 @@ export default function Page() {
         throw new Error("No se pudo obtener la lista de eventos");
       }
 
-      const data: Evento[] = await response.json();
-      setEventos(data);
+      const data: unknown = await response.json();
+
+      if (Array.isArray(data)) {
+        setEventos(data as Evento[]);
+      } else if (esEventosWrapper(data)) {
+        setEventos({ eventos: data.eventos as Evento[] });
+      } else {
+        setEventos([]);
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -531,16 +549,30 @@ export default function Page() {
     [fetchEventos],
   );
 
-  const eventosCalendario = useMemo(
-    () =>
-      eventos.map((evento) => ({
-        id: String(evento.id),
-        title: evento.titulo,
-        start: evento.inicio,
-        end: evento.fin,
-      })),
-    [eventos],
-  );
+  const listaEventos = useMemo(() => {
+    const lista = Array.isArray(eventos)
+      ? eventos
+      : esEventosWrapper(eventos)
+      ? eventos.eventos
+      : [];
+
+    return lista;
+  }, [eventos]);
+
+  const eventosCalendario = useMemo(() => {
+    const lista = Array.isArray(eventos)
+      ? eventos
+      : esEventosWrapper(eventos)
+      ? eventos.eventos
+      : [];
+
+    return lista.map((evento) => ({
+      id: String(evento.id),
+      title: evento.titulo ?? "(Sin título)",
+      start: evento.inicio,
+      end: evento.fin,
+    }));
+  }, [eventos]);
 
   return (
     <div className="space-y-6 p-6">
@@ -566,7 +598,7 @@ export default function Page() {
             initialView="dayGridMonth"
             events={eventosCalendario}
             eventClick={(info) => {
-              const evento = eventos.find((item) => item.id === Number(info.event.id));
+              const evento = listaEventos.find((item) => item.id === Number(info.event.id));
               if (evento) {
                 handleOpenEdit(evento);
               }
@@ -582,7 +614,7 @@ export default function Page() {
           <h2 className="text-lg font-semibold text-gray-900">Lista de eventos</h2>
           {loadingEventos && <span className="text-sm text-gray-500">Cargando...</span>}
         </div>
-        <ListaEventos eventos={eventos} onEdit={handleOpenEdit} onDelete={handleDelete} deleting={deletingId} />
+        <ListaEventos eventos={listaEventos} onEdit={handleOpenEdit} onDelete={handleDelete} deleting={deletingId} />
       </div>
 
       <ModalEvento
