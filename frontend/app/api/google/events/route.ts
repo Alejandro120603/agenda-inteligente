@@ -47,6 +47,7 @@ export async function GET() {
 
       await guardarTokens(USER_ID, credentials);
       oauthClient.setCredentials(credentials);
+      console.log("ℹ️ Token de acceso renovado correctamente.");
     }
 
     const calendar = google.calendar({ version: "v3", auth: oauthClient });
