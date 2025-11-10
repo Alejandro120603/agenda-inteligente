@@ -55,32 +55,48 @@ const esEventosWrapper = (value: unknown): value is { eventos: Evento[] } => {
   return Array.isArray(possibleWrapper.eventos);
 };
 
-// Convierte un string ISO en un valor válido para input datetime-local (ajustado a zona local)
+// Convierte una fecha a un string compatible con <input type="datetime-local" />
+// 🔧 Ajuste: usamos el offset de la fecha como referencia local sin aplicar correcciones extra en cadena.
 const toLocalInputValue = (value: string) => {
   const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
   const timezoneOffset = date.getTimezoneOffset();
   const localDate = new Date(date.getTime() - timezoneOffset * 60000);
   return localDate.toISOString().slice(0, 16);
 };
 
-// Convierte el valor del input datetime-local en un string ISO listo para la API
+// Normaliza el valor del input (interpretado en la zona local del navegador) a ISO UTC.
+// 🔧 Corrección principal: eliminamos el ajuste manual del offset para evitar el doble desplazamiento.
 const fromLocalInputValue = (value: string) => {
   const date = new Date(value);
-  const timezoneOffset = date.getTimezoneOffset();
-  const utcDate = new Date(date.getTime() + timezoneOffset * 60000);
-  return utcDate.toISOString();
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toISOString();
 };
 
 const createEmptyFormData = (): EventFormData => {
+  const formatAsDatetimeLocal = (date: Date) => {
+    const timezoneOffset = date.getTimezoneOffset() * 60000;
+    const localDate = new Date(date.getTime() - timezoneOffset);
+    return localDate.toISOString().slice(0, 16);
+  };
+
   const now = new Date();
   const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
-  const timezoneOffset = now.getTimezoneOffset() * 60000;
 
   return {
     titulo: "",
     descripcion: "",
-    inicio: new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 16),
-    fin: new Date(inOneHour.getTime() - timezoneOffset).toISOString().slice(0, 16),
+    // 🔧 Usamos el mismo formato local consistente para evitar offsets duplicados.
+    inicio: formatAsDatetimeLocal(now),
+    fin: formatAsDatetimeLocal(inOneHour),
     ubicacion: "",
     tipo: "personal",
     recordatorio: "",
