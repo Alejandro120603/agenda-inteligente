@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 
 interface InvitacionRow {
   id: number;
+  id_usuario: number;
   estado: string;
 }
 
@@ -23,10 +24,10 @@ export async function POST(
     }
 
     const invitacion = await db.get<InvitacionRow>(
-      `SELECT id, estado
+      `SELECT id, id_usuario, estado
        FROM miembros_equipo
-       WHERE id = ? AND id_usuario = ?`,
-      [invitacionId, user.id]
+       WHERE id = ?`,
+      [invitacionId]
     );
 
     if (!invitacion) {
@@ -36,18 +37,25 @@ export async function POST(
       );
     }
 
+    if (invitacion.id_usuario !== user.id) {
+      return NextResponse.json(
+        { error: "No tienes permiso para responder esta invitación" },
+        { status: 403 }
+      );
+    }
+
     if (invitacion.estado !== "pendiente") {
       return NextResponse.json(
         { error: "La invitación ya fue respondida" },
-        { status: 409 }
+        { status: 400 }
       );
     }
 
     const update = await db.run(
       `UPDATE miembros_equipo
        SET estado = 'rechazado', respondido_en = CURRENT_TIMESTAMP
-       WHERE id = ? AND id_usuario = ?`,
-      [invitacionId, user.id]
+       WHERE id = ?`,
+      [invitacionId]
     );
 
     if (!update.changes) {
@@ -57,7 +65,7 @@ export async function POST(
       );
     }
 
-    return NextResponse.json({ message: "Invitación rechazada" });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[POST /api/invitaciones/:id/rechazar]", error);
     return NextResponse.json(
