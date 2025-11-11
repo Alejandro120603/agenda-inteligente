@@ -8,8 +8,10 @@ PRAGMA foreign_keys = ON;
 INSERT INTO usuarios (nombre, correo, password_hash, zona_horaria)
 VALUES
     ('Daniel',   'daniel@correo.com',   '$2y$10$vumSDY3.6wPPqFwpJ5PxAettRW0TgrUIblFdxPUcYw5Aq47h.IglO',   'America/Mexico_City'),
-    ('Adrián',   'adrian@correo.com',   '$2y$10$lL09MVtQwLpwglXWGvec9OVVCBCmtAoQMIUnWn4Dk3b334r3MbQGS',   'America/Mexico_City'),
-    ('Sebastián','sebastian@correo.com','$2y$10$0KABdqRFzf2StNEF2Zn3n.1/poMOcAu0rBhDPYZGhsvptcJFNV0QW',   'America/Mexico_City');
+    ('Adrián',   'adrian@correo.com',   '$2b$10$HvaDMdEcptihAA6j.hVpZ.HR90CBh0OiOm0EIv9zaPnoroXDnila2',   'America/Mexico_City'),
+    ('Sebastián','sebastian@correo.com','$2b$10$uvVu2C4JHAQYHwIUyOOqHeHChAZvLnNWBYftZGVTQo5WnEbJl6Sru',   'America/Mexico_City'),
+    ('Amir',     'amir@correo.com',     '$2b$10$I7iISrQrmbCcAFTFyJxv0Oy/LuFqVFFDSA2HmG2RuO3w5OwokSzA6',   'America/Mexico_City'),
+    ('Gustavo',  'gustavo@correo.com',  '$2b$10$Vn3KRP4.HTdyMgvtl656e.opCv3B.UsA6VG/pKHJexCOnDvseKZxu',   'America/Mexico_City');
 
 -- ============================================================
 -- 2. Evento inicial en el calendario interno
