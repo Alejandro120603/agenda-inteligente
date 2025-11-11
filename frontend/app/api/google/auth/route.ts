@@ -18,7 +18,7 @@ export async function GET() {
       include_granted_scopes: true,
     });
 
-    return NextResponse.redirect(authUrl, 302);
+    return NextResponse.json({ url: authUrl });
   } catch (error) {
     console.error("[GET /api/google/auth]", error);
     return NextResponse.json(
