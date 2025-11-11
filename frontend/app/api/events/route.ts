@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { allQuery, runQuery } from "@/lib/db";
+import { allQuery, getQuery, runQuery } from "@/lib/db";
 
 interface EventoInternoRow {
   id: number;
   id_usuario: number;
+  id_equipo: number | null;
   titulo: string;
   descripcion: string | null;
   inicio: string;
@@ -13,6 +14,10 @@ interface EventoInternoRow {
   tipo: "personal" | "equipo" | "otro";
   recordatorio: number;
   creado_en: string;
+  equipo_nombre: string | null;
+  es_organizador: 0 | 1;
+  es_participante: 0 | 1;
+  estado_asistencia: "pendiente" | "aceptado" | "rechazado" | null;
 }
 
 async function obtenerUsuarioAutenticado(): Promise<number | null> {
@@ -40,8 +45,29 @@ export async function GET() {
     }
 
     const eventos = await allQuery<EventoInternoRow>(
-      "SELECT id, id_usuario, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio, creado_en FROM eventos_internos WHERE id_usuario = ? ORDER BY inicio ASC",
-      [userId]
+      `SELECT
+        e.id,
+        e.id_usuario,
+        e.id_equipo,
+        e.titulo,
+        e.descripcion,
+        e.inicio,
+        e.fin,
+        e.ubicacion,
+        e.tipo,
+        e.recordatorio,
+        e.creado_en,
+        eq.nombre AS equipo_nombre,
+        CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador,
+        CASE WHEN pei.id IS NULL THEN 0 ELSE 1 END AS es_participante,
+        pei.estado_asistencia
+      FROM eventos_internos e
+      LEFT JOIN participantes_evento_interno pei
+        ON pei.id_evento = e.id AND pei.id_usuario = ?
+      LEFT JOIN equipos eq ON eq.id = e.id_equipo
+      WHERE e.id_usuario = ? OR pei.id IS NOT NULL
+      ORDER BY datetime(e.inicio) ASC`,
+      [userId, userId, userId]
     );
 
     return NextResponse.json({ eventos });
@@ -71,6 +97,7 @@ export async function POST(request: NextRequest) {
       ubicacion = null,
       tipo = "personal",
       recordatorio = 0,
+      id_equipo: idEquipoPayload = null,
     } = body ?? {};
 
     if (!titulo || typeof titulo !== "string") {
@@ -88,19 +115,116 @@ export async function POST(request: NextRequest) {
     }
 
     const tiposPermitidos = new Set(["personal", "equipo", "otro"]);
-    const tipoEvento = tiposPermitidos.has(tipo) ? tipo : "personal";
+    const tipoEvento =
+      tipo === "equipo" ? "equipo" : tiposPermitidos.has(tipo) ? tipo : "personal";
 
-    const recordatorioValor = Number(recordatorio) || 0;
+    const recordatorioValor = Number.isFinite(Number(recordatorio))
+      ? Number(recordatorio)
+      : 0;
+
+    const descripcionNormalizada =
+      typeof descripcion === "string" && descripcion.trim().length > 0
+        ? descripcion
+        : null;
+    const ubicacionNormalizada =
+      typeof ubicacion === "string" && ubicacion.trim().length > 0
+        ? ubicacion
+        : null;
+
+    if (tipoEvento === "equipo") {
+      const equipoId = Number(idEquipoPayload);
+      if (!Number.isInteger(equipoId)) {
+        return NextResponse.json(
+          { error: "Debes seleccionar un equipo válido" },
+          { status: 400 }
+        );
+      }
+
+      const pertenencia = await getQuery<{ id: number }>(
+        `SELECT me.id
+         FROM miembros_equipo me
+         WHERE me.id_equipo = ? AND me.id_usuario = ? AND me.estado = 'aceptado'`,
+        [equipoId, userId]
+      );
+
+      if (!pertenencia) {
+        return NextResponse.json(
+          { error: "No perteneces al equipo seleccionado" },
+          { status: 403 }
+        );
+      }
+
+      const miembros = await allQuery<{ id_usuario: number }>(
+        `SELECT id_usuario
+         FROM miembros_equipo
+         WHERE id_equipo = ? AND estado = 'aceptado'`,
+        [equipoId]
+      );
+
+      if (miembros.length === 0) {
+        return NextResponse.json(
+          { error: "El equipo no tiene miembros activos" },
+          { status: 400 }
+        );
+      }
+
+      await runQuery("BEGIN TRANSACTION");
+      try {
+        const insertResult = await runQuery(
+          `INSERT INTO eventos_internos
+            (id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            userId,
+            equipoId,
+            titulo.trim(),
+            descripcionNormalizada,
+            inicio,
+            fin,
+            ubicacionNormalizada,
+            tipoEvento,
+            recordatorioValor,
+          ]
+        );
+
+        const id = Number(insertResult.lastID);
+        const fechaRespuesta = new Date().toISOString();
+
+        for (const miembro of miembros) {
+          const participanteId = miembro.id_usuario;
+          const estadoAsistencia =
+            participanteId === userId ? "aceptado" : "pendiente";
+          const respondidoEn =
+            participanteId === userId ? fechaRespuesta : null;
+
+          await runQuery(
+            `INSERT OR IGNORE INTO participantes_evento_interno
+              (id_evento, id_usuario, estado_asistencia, respondido_en)
+             VALUES (?, ?, ?, ?)`,
+            [id, participanteId, estadoAsistencia, respondidoEn]
+          );
+        }
+
+        await runQuery("COMMIT");
+
+        return NextResponse.json({ id, message: "Evento creado correctamente" });
+      } catch (transactionError) {
+        await runQuery("ROLLBACK");
+        throw transactionError;
+      }
+    }
 
     const insertResult = await runQuery(
-      "INSERT INTO eventos_internos (id_usuario, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      `INSERT INTO eventos_internos
+        (id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio)
+       VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         titulo.trim(),
-        descripcion,
+        descripcionNormalizada,
         inicio,
         fin,
-        ubicacion,
+        ubicacionNormalizada,
         tipoEvento,
         recordatorioValor,
       ]
