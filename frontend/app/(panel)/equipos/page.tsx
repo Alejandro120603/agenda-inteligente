@@ -76,7 +76,26 @@ export default function EquiposPage() {
     if (!respuesta.ok) {
       throw new Error(datos.error ?? "No se pudieron cargar las invitaciones");
     }
-    setInvitaciones(datos.invitaciones ?? []);
+
+    const invitacionesCrudas: Array<Partial<InvitacionItem>> = datos.invitaciones ?? [];
+    const invitacionesNormalizadas: InvitacionItem[] = invitacionesCrudas
+      .map((invitacion) => ({
+        ...invitacion,
+        id: Number(invitacion.id),
+      }))
+      .filter(
+        (invitacion): invitacion is InvitacionItem =>
+          Number.isInteger(invitacion.id) && invitacion.id > 0
+      );
+
+    if (invitacionesNormalizadas.length !== invitacionesCrudas.length) {
+      console.warn(
+        "[equipos] Invitaciones descartadas por id inválido:",
+        invitacionesCrudas
+      );
+    }
+
+    setInvitaciones(invitacionesNormalizadas);
   }
 
   async function obtenerUsuarios() {
@@ -130,10 +149,16 @@ export default function EquiposPage() {
   }
 
   async function manejarRespuestaInvitacion(id: number, accion: "aceptar" | "rechazar") {
-    setProcesandoInvitacion(id);
+    const invitacionId = Number(id);
+    if (!Number.isInteger(invitacionId) || invitacionId <= 0) {
+      setFeedback({ type: "error", message: "Invitación inválida" });
+      return;
+    }
+
+    setProcesandoInvitacion(invitacionId);
     setFeedback(null);
     try {
-      const respuesta = await fetch(`/api/invitaciones/${id}/${accion}`, {
+      const respuesta = await fetch(`/api/invitaciones/${invitacionId}/${accion}`, {
         method: "POST",
       });
       const datos = await respuesta.json();
