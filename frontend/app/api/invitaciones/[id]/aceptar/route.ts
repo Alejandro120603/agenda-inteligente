@@ -10,7 +10,7 @@ interface InvitacionRow {
 
 export async function POST(
   _: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getUserFromSession();
@@ -18,7 +18,8 @@ export async function POST(
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const invitacionId = Number(context.params.id);
+    const params = await context.params;
+    const invitacionId = Number(params.id);
     if (!Number.isInteger(invitacionId) || invitacionId <= 0) {
       return NextResponse.json({ error: "Invitación inválida" }, { status: 400 });
     }
@@ -65,7 +66,7 @@ export async function POST(
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: "Invitación aceptada" });
   } catch (error) {
     console.error("[POST /api/invitaciones/:id/aceptar]", error);
     return NextResponse.json(
