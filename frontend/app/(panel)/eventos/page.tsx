@@ -13,6 +13,13 @@ const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
 
 type TipoEvento = "personal" | "equipo" | "otro";
 
+type EstadoAsistencia = "pendiente" | "aceptado" | "rechazado" | null;
+
+type Equipo = {
+  id: number;
+  nombre: string;
+};
+
 type Evento = {
   id: number;
   titulo: string;
@@ -22,6 +29,11 @@ type Evento = {
   ubicacion?: string | null;
   tipo: TipoEvento;
   recordatorio?: number | null;
+  id_equipo?: number | null;
+  equipo_nombre?: string | null;
+  estado_asistencia?: EstadoAsistencia;
+  es_organizador?: boolean;
+  es_participante?: boolean;
 };
 
 type EventFormData = {
@@ -32,6 +44,7 @@ type EventFormData = {
   ubicacion: string;
   tipo: TipoEvento;
   recordatorio: string;
+  id_equipo: string;
 };
 
 type ModalEventoProps = {
@@ -42,6 +55,8 @@ type ModalEventoProps = {
   onSubmit: (data: EventFormData) => Promise<void>;
   loading: boolean;
   feedback: { type: "success" | "error"; message: string } | null;
+  equipos: Equipo[];
+  loadingEquipos: boolean;
 };
 
 type EventosState = Evento[] | { eventos: Evento[] };
@@ -54,6 +69,11 @@ const esEventosWrapper = (value: unknown): value is { eventos: Evento[] } => {
   const possibleWrapper = value as { eventos?: unknown };
   return Array.isArray(possibleWrapper.eventos);
 };
+
+const esEstadoAsistenciaValido = (
+  value: unknown
+): value is Exclude<EstadoAsistencia, null> =>
+  value === "pendiente" || value === "aceptado" || value === "rechazado";
 
 // Convierte una fecha a un string compatible con <input type="datetime-local" />
 // 🔧 Ajuste: usamos el offset de la fecha como referencia local sin aplicar correcciones extra en cadena.
@@ -100,6 +120,7 @@ const createEmptyFormData = (): EventFormData => {
     ubicacion: "",
     tipo: "personal",
     recordatorio: "",
+    id_equipo: "",
   };
 };
 
@@ -111,6 +132,8 @@ const ModalEvento = ({
   onSubmit,
   loading,
   feedback,
+  equipos,
+  loadingEquipos,
 }: ModalEventoProps) => {
   const [formData, setFormData] = useState<EventFormData>(createEmptyFormData);
   const [errors, setErrors] = useState<string | null>(null);
@@ -133,6 +156,10 @@ const ModalEvento = ({
         recordatorio:
           initialData.recordatorio !== null && initialData.recordatorio !== undefined
             ? String(initialData.recordatorio)
+            : "",
+        id_equipo:
+          initialData.tipo === "equipo" && initialData.id_equipo
+            ? String(initialData.id_equipo)
             : "",
       });
       setErrors(null);
@@ -166,6 +193,11 @@ const ModalEvento = ({
 
     if (end <= start) {
       setErrors("La fecha de fin debe ser posterior a la fecha de inicio.");
+      return;
+    }
+
+    if (formData.tipo === "equipo" && !formData.id_equipo) {
+      setErrors("Selecciona el equipo para el evento.");
       return;
     }
 
@@ -272,6 +304,7 @@ const ModalEvento = ({
                 className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
                 value={formData.tipo}
                 onChange={(event) => handleChange("tipo", event.target.value as TipoEvento)}
+                disabled={mode === "edit" && initialData?.tipo === "equipo"}
               >
                 <option value="personal">Personal</option>
                 <option value="equipo">Equipo</option>
@@ -279,6 +312,36 @@ const ModalEvento = ({
               </select>
             </div>
           </div>
+
+          {formData.tipo === "equipo" && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="equipo">
+                Equipo
+              </label>
+              {loadingEquipos ? (
+                <p className="text-sm text-gray-500">Cargando equipos...</p>
+              ) : equipos.length > 0 ? (
+                <select
+                  id="equipo"
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  value={formData.id_equipo}
+                  onChange={(event) => handleChange("id_equipo", event.target.value)}
+                  disabled={mode === "edit" && initialData?.tipo === "equipo"}
+                >
+                  <option value="">Selecciona un equipo</option>
+                  {equipos.map((equipo) => (
+                    <option key={equipo.id} value={equipo.id}>
+                      {equipo.nombre}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-sm text-amber-600">
+                  No perteneces a ningún equipo aceptado todavía.
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="recordatorio">
@@ -334,11 +397,15 @@ const ListaEventos = ({
   onEdit,
   onDelete,
   deleting,
+  onResponder,
+  responding,
 }: {
   eventos: Evento[];
   onEdit: (evento: Evento) => void;
   onDelete: (evento: Evento) => Promise<void>;
   deleting: number | null;
+  onResponder: (evento: Evento, estado: Exclude<EstadoAsistencia, null>) => Promise<void>;
+  responding: number | null;
 }) => {
   return (
     <div className="mt-8 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -357,6 +424,12 @@ const ListaEventos = ({
             <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
               Tipo
             </th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              Equipo
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              Asistencia
+            </th>
             <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
               Acciones
             </th>
@@ -370,35 +443,105 @@ const ListaEventos = ({
               </td>
             </tr>
           ) : (
-            eventos.map((evento) => (
-              <tr key={evento.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">{evento.titulo}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {new Date(evento.inicio).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {new Date(evento.fin).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 text-sm capitalize text-gray-600">{evento.tipo}</td>
-                <td className="px-4 py-3 text-right text-sm text-gray-600">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      className="rounded-md border border-gray-200 px-3 py-1 text-sm transition hover:bg-blue-50"
-                      onClick={() => onEdit(evento)}
-                    >
-                      ✏️ Editar
-                    </button>
-                    <button
-                      className="rounded-md border border-red-200 px-3 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed"
-                      onClick={() => onDelete(evento)}
-                      disabled={deleting === evento.id}
-                    >
-                      {deleting === evento.id ? "Eliminando..." : "🗑️ Eliminar"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))
+            eventos.map((evento) => {
+              const esEquipo = evento.tipo === "equipo";
+              const esOrganizador = Boolean(evento.es_organizador);
+              const esParticipante = Boolean(evento.es_participante);
+              const estadoAsistencia = evento.estado_asistencia ?? null;
+              const puedeResponder = esEquipo && esParticipante && !esOrganizador;
+              const mostrarRevertir =
+                puedeResponder && estadoAsistencia !== null && estadoAsistencia !== "pendiente";
+
+              return (
+                <tr key={evento.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{evento.titulo}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {new Date(evento.inicio).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {new Date(evento.fin).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-sm capitalize text-gray-600">{evento.tipo}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {esEquipo ? evento.equipo_nombre ?? "—" : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {(() => {
+                      if (!esEquipo) {
+                        return "—";
+                      }
+
+                      if (esOrganizador) {
+                        return "👑 Organizador";
+                      }
+
+                      switch (estadoAsistencia) {
+                        case "aceptado":
+                          return "🟢 Aceptado";
+                        case "rechazado":
+                          return "🔴 Rechazado";
+                        case "pendiente":
+                        default:
+                          return "🟡 Pendiente";
+                      }
+                    })()}
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-gray-600">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {puedeResponder ? (
+                        <>
+                          <button
+                            className="rounded-md border border-green-200 px-3 py-1 text-sm text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => onResponder(evento, "aceptado")}
+                            disabled={responding === evento.id}
+                        >
+                          {responding === evento.id ? "Actualizando..." : "🟢 Aceptar"}
+                        </button>
+                          <button
+                            className="rounded-md border border-red-200 px-3 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => onResponder(evento, "rechazado")}
+                            disabled={responding === evento.id}
+                          >
+                            {responding === evento.id ? "Actualizando..." : "🔴 Rechazar"}
+                          </button>
+                        {mostrarRevertir && (
+                          <button
+                            className="rounded-md border border-gray-200 px-3 py-1 text-sm text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => onResponder(evento, "pendiente")}
+                            disabled={responding === evento.id}
+                          >
+                            {responding === evento.id ? "Actualizando..." : "↩️ Pendiente"}
+                          </button>
+                        )}
+                      </>
+                      ) : null}
+
+                      {esOrganizador ? (
+                        <>
+                          <button
+                            className="rounded-md border border-gray-200 px-3 py-1 text-sm transition hover:bg-blue-50"
+                            onClick={() => onEdit(evento)}
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button
+                          className="rounded-md border border-red-200 px-3 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed"
+                          onClick={() => onDelete(evento)}
+                          disabled={deleting === evento.id}
+                        >
+                          {deleting === evento.id ? "Eliminando..." : "🗑️ Eliminar"}
+                        </button>
+                        </>
+                      ) : null}
+
+                      {!esOrganizador && !puedeResponder ? (
+                        <span className="px-3 py-1 text-sm text-gray-400">—</span>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
@@ -417,6 +560,85 @@ export default function Page() {
     null,
   );
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [equipos, setEquipos] = useState<Equipo[]>([]);
+  const [loadingEquipos, setLoadingEquipos] = useState(false);
+  const [respondingId, setRespondingId] = useState<number | null>(null);
+  const [respuestaMensaje, setRespuestaMensaje] = useState<
+    { type: "success" | "error"; message: string } | null
+  >(null);
+
+  useEffect(() => {
+    if (!respuestaMensaje) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setRespuestaMensaje(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [respuestaMensaje]);
+
+  const fetchEquipos = useCallback(async () => {
+    try {
+      setLoadingEquipos(true);
+      const response = await fetch("/api/equipos", {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setEquipos([]);
+          return;
+        }
+
+        throw new Error("No se pudo obtener la lista de equipos");
+      }
+
+      const data: unknown = await response.json();
+      const posiblesEquipos: unknown[] = Array.isArray(data)
+        ? data
+        : data && typeof data === "object" && Array.isArray((data as { equipos?: unknown[] }).equipos)
+        ? ((data as { equipos?: unknown[] }).equipos as unknown[])
+        : [];
+
+      const normalizados = posiblesEquipos
+        .map((item) => {
+          if (!item || typeof item !== "object") {
+            return null;
+          }
+
+          const registro = item as Record<string, unknown>;
+          const idValor = registro.id;
+          const nombreValor = registro.nombre;
+
+          const id =
+            typeof idValor === "number"
+              ? idValor
+              : typeof idValor === "string"
+              ? Number.parseInt(idValor, 10)
+              : NaN;
+
+          if (!Number.isInteger(id)) {
+            return null;
+          }
+
+          if (typeof nombreValor !== "string" || nombreValor.trim().length === 0) {
+            return null;
+          }
+
+          return {
+            id,
+            nombre: nombreValor,
+          } satisfies Equipo;
+        })
+        .filter((equipo): equipo is Equipo => Boolean(equipo));
+
+      setEquipos(normalizados);
+    } catch (error) {
+      console.error(error);
+      setEquipos([]);
+    } finally {
+      setLoadingEquipos(false);
+    }
+  }, []);
 
   const fetchEventos = useCallback(async () => {
     try {
@@ -430,26 +652,134 @@ export default function Page() {
       }
 
       const data: unknown = await response.json();
+      const listaBruta: unknown[] = Array.isArray(data)
+        ? data
+        : esEventosWrapper(data)
+        ? data.eventos
+        : [];
+
+      const normalizados = listaBruta
+        .map((item) => {
+          if (!item || typeof item !== "object") {
+            return null;
+          }
+
+          const registro = item as Record<string, unknown>;
+          const idValor = registro.id;
+          const inicioValor = registro.inicio;
+          const finValor = registro.fin;
+
+          const id =
+            typeof idValor === "number"
+              ? idValor
+              : typeof idValor === "string"
+              ? Number.parseInt(idValor, 10)
+              : NaN;
+
+          if (!Number.isInteger(id)) {
+            return null;
+          }
+
+          if (typeof inicioValor !== "string" || typeof finValor !== "string") {
+            return null;
+          }
+
+          const tituloValor = registro.titulo;
+          const tipoValor = registro.tipo;
+
+          const tipoEvento: TipoEvento =
+            tipoValor === "personal" || tipoValor === "equipo" || tipoValor === "otro"
+              ? tipoValor
+              : "personal";
+
+          const descripcionValor =
+            typeof registro.descripcion === "string" ? registro.descripcion : null;
+          const ubicacionValor =
+            typeof registro.ubicacion === "string" ? registro.ubicacion : null;
+
+          const recordatorioValor = (() => {
+            if (typeof registro.recordatorio === "number") {
+              return registro.recordatorio;
+            }
+
+            if (
+              typeof registro.recordatorio === "string" &&
+              !Number.isNaN(Number.parseInt(registro.recordatorio, 10))
+            ) {
+              return Number.parseInt(registro.recordatorio, 10);
+            }
+
+            return null;
+          })();
+
+          const idEquipoValor = registro.id_equipo;
+          const idEquipo =
+            typeof idEquipoValor === "number"
+              ? idEquipoValor
+              : typeof idEquipoValor === "string"
+              ? Number.parseInt(idEquipoValor, 10)
+              : null;
+
+          const equipoNombre =
+            typeof registro.equipo_nombre === "string" ? registro.equipo_nombre : null;
+
+          const estadoAsistencia = esEstadoAsistenciaValido(registro.estado_asistencia)
+            ? registro.estado_asistencia
+            : null;
+
+          const esOrganizador =
+            registro.es_organizador === 1 || registro.es_organizador === true;
+          const esParticipante =
+            registro.es_participante === 1 || registro.es_participante === true;
+
+          return {
+            id,
+            titulo:
+              typeof tituloValor === "string"
+                ? tituloValor
+                : tituloValor != null
+                ? String(tituloValor)
+                : "(Sin título)",
+            descripcion: descripcionValor,
+            inicio: inicioValor,
+            fin: finValor,
+            ubicacion: ubicacionValor,
+            tipo: tipoEvento,
+            recordatorio: recordatorioValor,
+            id_equipo: idEquipo,
+            equipo_nombre: equipoNombre,
+            estado_asistencia: estadoAsistencia,
+            es_organizador: esOrganizador,
+            es_participante: esParticipante,
+          } satisfies Evento;
+        })
+        .filter((evento): evento is Evento => Boolean(evento));
 
       if (Array.isArray(data)) {
-        setEventos(data as Evento[]);
+        setEventos(normalizados);
       } else if (esEventosWrapper(data)) {
-        setEventos({ eventos: data.eventos as Evento[] });
+        setEventos({ eventos: normalizados });
       } else {
-        setEventos([]);
+        setEventos(normalizados);
       }
     } catch (error) {
       console.error(error);
+      setEventos([]);
     } finally {
       setLoadingEventos(false);
     }
   }, []);
 
   useEffect(() => {
+    fetchEquipos();
+  }, [fetchEquipos]);
+
+  useEffect(() => {
     fetchEventos();
   }, [fetchEventos]);
 
   const handleOpenCreate = () => {
+    fetchEquipos();
     setModalMode("create");
     setEventoSeleccionado(null);
     setFeedback(null);
@@ -474,6 +804,11 @@ export default function Page() {
     setFeedback(null);
 
     try {
+      const equipoId =
+        data.tipo === "equipo" && data.id_equipo
+          ? Number.parseInt(data.id_equipo, 10)
+          : null;
+
       const payload = {
         titulo: data.titulo.trim(),
         descripcion: data.descripcion.trim() || null,
@@ -482,6 +817,7 @@ export default function Page() {
         ubicacion: data.ubicacion.trim() || null,
         tipo: data.tipo,
         recordatorio: data.recordatorio ? Number(data.recordatorio) : null,
+        id_equipo: Number.isInteger(equipoId) ? equipoId : null,
       };
 
       let response: Response;
@@ -536,6 +872,59 @@ export default function Page() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResponderEvento = async (
+    evento: Evento,
+    estado: Exclude<EstadoAsistencia, null>
+  ) => {
+    if (!Number.isInteger(evento.id)) {
+      setRespuestaMensaje({
+        type: "error",
+        message: "No se pudo identificar el evento seleccionado.",
+      });
+      return;
+    }
+
+    setRespondingId(evento.id);
+    setRespuestaMensaje(null);
+
+    try {
+      const response = await fetch(`/api/events/${evento.id}/respuesta`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ estado }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "No se pudo actualizar la asistencia.");
+      }
+
+      let message = "Estado de asistencia actualizado.";
+      if (estado === "aceptado") {
+        message = "Has confirmado tu asistencia.";
+      } else if (estado === "rechazado") {
+        message = "Has rechazado la invitación.";
+      } else if (estado === "pendiente") {
+        message = "Has marcado la asistencia como pendiente.";
+      }
+
+      setRespuestaMensaje({ type: "success", message });
+      await fetchEventos();
+    } catch (error) {
+      console.error(error);
+      setRespuestaMensaje({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "No se pudo actualizar la asistencia.",
+      });
+    } finally {
+      setRespondingId(null);
     }
   };
 
@@ -600,6 +989,11 @@ export default function Page() {
         ubicacion: evento.ubicacion ?? null,
         tipo: evento.tipo,
         recordatorio: evento.recordatorio ?? null,
+        id_equipo: evento.id_equipo ?? null,
+        equipo_nombre: evento.equipo_nombre ?? null,
+        estado_asistencia: evento.estado_asistencia ?? null,
+        es_organizador: evento.es_organizador ?? false,
+        es_participante: evento.es_participante ?? false,
       },
     }));
   }, [eventos]);
@@ -639,30 +1033,77 @@ export default function Page() {
               }
 
               const eventoExistente = listaEventos.find((item) => item.id === id);
+              if (eventoExistente) {
+                handleOpenEdit(eventoExistente);
+                return;
+              }
               const tipoDesdeCalendario = info.event.extendedProps.tipo;
               const tipoNormalizado: TipoEvento =
                 tipoDesdeCalendario === "personal" ||
                 tipoDesdeCalendario === "equipo" ||
                 tipoDesdeCalendario === "otro"
                   ? tipoDesdeCalendario
-                  : eventoExistente?.tipo ?? "personal";
+                  : "personal";
+
+              const idEquipoDesdeCalendarioRaw = info.event.extendedProps.id_equipo;
+              const idEquipoDesdeCalendario =
+                typeof idEquipoDesdeCalendarioRaw === "number"
+                  ? idEquipoDesdeCalendarioRaw
+                  : typeof idEquipoDesdeCalendarioRaw === "string"
+                  ? Number.parseInt(idEquipoDesdeCalendarioRaw, 10)
+                  : null;
+
+              const equipoNombreDesdeCalendario =
+                typeof info.event.extendedProps.equipo_nombre === "string"
+                  ? info.event.extendedProps.equipo_nombre
+                  : null;
+
+              const estadoAsistenciaDesdeCalendario = esEstadoAsistenciaValido(
+                info.event.extendedProps.estado_asistencia,
+              )
+                ? info.event.extendedProps.estado_asistencia
+                : null;
+
+              const esOrganizadorCalendario =
+                info.event.extendedProps.es_organizador === true ||
+                info.event.extendedProps.es_organizador === 1;
+              const esParticipanteCalendario =
+                info.event.extendedProps.es_participante === true ||
+                info.event.extendedProps.es_participante === 1;
 
               const eventoSeleccionadoCalendario: Evento = {
                 id,
-                titulo: eventoExistente?.titulo ?? info.event.title,
+                titulo: typeof info.event.title === "string" ? info.event.title : "(Sin título)",
                 descripcion:
-                  eventoExistente?.descripcion ?? info.event.extendedProps.descripcion ?? null,
-                inicio: eventoExistente?.inicio ?? info.event.startStr,
+                  typeof info.event.extendedProps.descripcion === "string"
+                    ? info.event.extendedProps.descripcion
+                    : null,
+                inicio: info.event.startStr,
                 fin:
-                  eventoExistente?.fin ??
                   info.event.endStr ??
                   info.event.start?.toISOString() ??
                   info.event.startStr,
                 ubicacion:
-                  eventoExistente?.ubicacion ?? info.event.extendedProps.ubicacion ?? null,
+                  typeof info.event.extendedProps.ubicacion === "string"
+                    ? info.event.extendedProps.ubicacion
+                    : null,
                 tipo: tipoNormalizado,
                 recordatorio:
-                  eventoExistente?.recordatorio ?? info.event.extendedProps.recordatorio ?? null,
+                  typeof info.event.extendedProps.recordatorio === "number"
+                    ? info.event.extendedProps.recordatorio
+                    : typeof info.event.extendedProps.recordatorio === "string" &&
+                      !Number.isNaN(
+                        Number.parseInt(info.event.extendedProps.recordatorio, 10),
+                      )
+                    ? Number.parseInt(info.event.extendedProps.recordatorio, 10)
+                    : null,
+                id_equipo: Number.isInteger(idEquipoDesdeCalendario)
+                  ? Number(idEquipoDesdeCalendario)
+                  : null,
+                equipo_nombre: equipoNombreDesdeCalendario,
+                estado_asistencia: estadoAsistenciaDesdeCalendario,
+                es_organizador: esOrganizadorCalendario,
+                es_participante: esParticipanteCalendario,
               };
 
               // Abrimos el modal con los datos provenientes directamente del calendario
@@ -679,7 +1120,23 @@ export default function Page() {
           <h2 className="text-lg font-semibold text-gray-900">Lista de eventos</h2>
           {loadingEventos && <span className="text-sm text-gray-500">Cargando...</span>}
         </div>
-        <ListaEventos eventos={listaEventos} onEdit={handleOpenEdit} onDelete={handleDelete} deleting={deletingId} />
+        {respuestaMensaje && (
+          <p
+            className={`mt-3 text-sm ${
+              respuestaMensaje.type === "success" ? "text-green-600" : "text-red-500"
+            }`}
+          >
+            {respuestaMensaje.message}
+          </p>
+        )}
+        <ListaEventos
+          eventos={listaEventos}
+          onEdit={handleOpenEdit}
+          onDelete={handleDelete}
+          deleting={deletingId}
+          onResponder={handleResponderEvento}
+          responding={respondingId}
+        />
       </div>
 
       <ModalEvento
@@ -690,6 +1147,8 @@ export default function Page() {
         onSubmit={handleSubmitModal}
         loading={saving}
         feedback={feedback}
+        equipos={equipos}
+        loadingEquipos={loadingEquipos}
       />
     </div>
   );

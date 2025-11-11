@@ -5,6 +5,7 @@ import { getQuery, runQuery } from "@/lib/db";
 interface EventoInternoRow {
   id: number;
   id_usuario: number;
+  id_equipo: number | null;
   titulo: string;
   descripcion: string | null;
   inicio: string;
@@ -32,7 +33,8 @@ async function obtenerEventoDelUsuario(
   userId: number
 ): Promise<EventoInternoRow | null> {
   const evento = await getQuery<EventoInternoRow>(
-    "SELECT id, id_usuario, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio, creado_en FROM eventos_internos WHERE id = ? AND id_usuario = ?",
+    `SELECT id, id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio, creado_en
+     FROM eventos_internos WHERE id = ? AND id_usuario = ?`,
     [id, userId]
   );
 
