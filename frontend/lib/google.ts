@@ -26,6 +26,8 @@ export interface ConfiguracionOAuth {
   redirectUri: string;
 }
 
+const DEFAULT_REDIRECT_URI = "http://localhost:3000/api/google/callback";
+
 const DEFAULT_SCOPES = [
   "https://www.googleapis.com/auth/calendar",
   "https://www.googleapis.com/auth/userinfo.email",
@@ -64,7 +66,8 @@ export function obtenerScopes(): string[] {
 export function obtenerCredencialesDesdeEntorno(): ConfiguracionOAuth | null {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const redirectUriEnv = process.env.GOOGLE_REDIRECT_URI;
+  const redirectUri = redirectUriEnv ?? DEFAULT_REDIRECT_URI;
 
   const esCadenaValida = (valor: unknown): valor is string =>
     typeof valor === "string" && valor.trim() !== "";
@@ -72,15 +75,21 @@ export function obtenerCredencialesDesdeEntorno(): ConfiguracionOAuth | null {
   const disponibles = {
     GOOGLE_CLIENT_ID: esCadenaValida(clientId),
     GOOGLE_CLIENT_SECRET: esCadenaValida(clientSecret),
-    GOOGLE_REDIRECT_URI: esCadenaValida(redirectUri),
+    GOOGLE_REDIRECT_URI: esCadenaValida(redirectUriEnv),
   };
 
-  if (!disponibles.GOOGLE_CLIENT_ID || !disponibles.GOOGLE_CLIENT_SECRET || !disponibles.GOOGLE_REDIRECT_URI) {
+  if (!disponibles.GOOGLE_CLIENT_ID || !disponibles.GOOGLE_CLIENT_SECRET) {
     console.warn(
       "[google.ts] Variables de entorno incompletas para Google OAuth.",
       disponibles,
     );
     return null;
+  }
+
+  if (!disponibles.GOOGLE_REDIRECT_URI) {
+    console.warn(
+      `[google.ts] GOOGLE_REDIRECT_URI no está definida. Se utilizará el valor por defecto ${DEFAULT_REDIRECT_URI}.`,
+    );
   }
 
   return {
@@ -204,8 +213,11 @@ export function obtenerConfiguracionOAuth(): ConfiguracionOAuth {
     console.log(
       "[google.ts] Credenciales de Google obtenidas desde variables de entorno.",
     );
-    configuracionOAuthMemorizada = desdeEntorno;
-    return desdeEntorno;
+    configuracionOAuthMemorizada = {
+      ...desdeEntorno,
+      redirectUri: desdeEntorno.redirectUri.trim(),
+    };
+    return configuracionOAuthMemorizada;
   }
 
   console.warn(
@@ -217,8 +229,11 @@ export function obtenerConfiguracionOAuth(): ConfiguracionOAuth {
     console.log(
       "[google.ts] Credenciales de Google cargadas desde credentials/google_oauth.json.",
     );
-    configuracionOAuthMemorizada = desdeArchivo;
-    return desdeArchivo;
+    configuracionOAuthMemorizada = {
+      ...desdeArchivo,
+      redirectUri: desdeArchivo.redirectUri.trim(),
+    };
+    return configuracionOAuthMemorizada;
   }
 
   const mensajeError =
@@ -227,13 +242,58 @@ export function obtenerConfiguracionOAuth(): ConfiguracionOAuth {
   throw new Error(mensajeError);
 }
 
+function normalizarRedirectUri(uri: string): string {
+  const trimmed = uri.trim();
+
+  if (!trimmed) {
+    console.warn(
+      `[Google OAuth] URI de redirección vacía. Se utilizará ${DEFAULT_REDIRECT_URI}.`,
+    );
+    return DEFAULT_REDIRECT_URI;
+  }
+
+  let sanitizada = trimmed;
+
+  if (sanitizada.endsWith("/")) {
+    const sinBarra = sanitizada.replace(/\/+$/, "");
+    console.warn(
+      `[Google OAuth] La URI de redirección terminaba con '/'. Se ajustó a ${sinBarra}.`,
+    );
+    sanitizada = sinBarra;
+  }
+
+  if (!sanitizada.startsWith("http://") && !sanitizada.startsWith("https://")) {
+    console.warn(
+      `[Google OAuth] La URI de redirección (${sanitizada}) no contiene un esquema válido. Se usará ${DEFAULT_REDIRECT_URI}.`,
+    );
+    return DEFAULT_REDIRECT_URI;
+  }
+
+  if (sanitizada !== DEFAULT_REDIRECT_URI) {
+    console.warn(
+      `[Google OAuth] La URI de redirección configurada (${sanitizada}) no coincide con la recomendada (${DEFAULT_REDIRECT_URI}). Verifica GOOGLE_REDIRECT_URI en .env.local.`,
+    );
+  }
+
+  return sanitizada;
+}
+
 /**
  * Construye un cliente OAuth2 listo para usarse en la integración de Google Calendar.
  */
 export function crearClienteOAuth(tokens?: Credentials): OAuth2Client {
   const { clientId, clientSecret, redirectUri } = obtenerConfiguracionOAuth();
+  const redirectUriSegura = normalizarRedirectUri(redirectUri);
 
-  const client = new OAuth2Client(clientId, clientSecret, redirectUri);
+  if (configuracionOAuthMemorizada) {
+    configuracionOAuthMemorizada = {
+      ...configuracionOAuthMemorizada,
+      redirectUri: redirectUriSegura,
+    };
+  }
+
+  const client = new OAuth2Client(clientId, clientSecret, redirectUriSegura);
+  console.log("[Google OAuth] URI usada:", redirectUriSegura);
 
   if (tokens) {
     client.setCredentials(tokens);

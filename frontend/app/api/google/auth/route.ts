@@ -8,23 +8,20 @@ export const runtime = "nodejs";
  */
 export async function GET() {
   try {
-    const oauthClient = crearClienteOAuth();
+    const client = crearClienteOAuth();
     const scopes = obtenerScopes();
-
-    const authUrl = oauthClient.generateAuthUrl({
+    const url = client.generateAuthUrl({
       access_type: "offline",
       scope: scopes,
-      prompt: "consent",
-      include_granted_scopes: true,
     });
-
-    return NextResponse.json({ url: authUrl });
+    console.log("[GoogleAuth] URL generada:", url);
+    return NextResponse.json({ url });
   } catch (error) {
-    console.error("[GET /api/google/auth]", error);
+    console.error("[GoogleAuth Error]", error);
     return NextResponse.json(
       {
-        error:
-          "No fue posible iniciar la autenticación con Google. Verifica la configuración del servidor.",
+        error: "Fallo en /api/google/auth",
+        detalle: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
