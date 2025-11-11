@@ -14,6 +14,11 @@ const dbPath = path.join(process.cwd(), "..", "data", "app.db");
 const sqlite = sqlite3.verbose();
 type SqliteDatabase = InstanceType<typeof sqlite3.Database>; // ✅ Tipado correcto
 
+interface RunResult {
+  lastID?: number;
+  changes?: number;
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __agendaDb: SqliteDatabase | undefined;
@@ -21,6 +26,53 @@ declare global {
 
 //
 // --- CONEXIÓN ---
+function initializeTeamSchema(database: SqliteDatabase) {
+  database.serialize(() => {
+    database.run("PRAGMA foreign_keys = ON", (error) => {
+      if (error) {
+        console.error("[DB] No fue posible habilitar las claves foráneas", error);
+      }
+    });
+
+    database.run(
+      `CREATE TABLE IF NOT EXISTS equipos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        creado_por INTEGER NOT NULL,
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (creado_por) REFERENCES usuarios(id) ON DELETE CASCADE
+      )`,
+      (error) => {
+        if (error) {
+          console.error("[DB] Error creando la tabla equipos", error);
+        }
+      }
+    );
+
+    database.run(
+      `CREATE TABLE IF NOT EXISTS miembros_equipo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_equipo INTEGER NOT NULL,
+        id_usuario INTEGER NOT NULL,
+        rol TEXT CHECK(rol IN ('administrador','miembro')) DEFAULT 'miembro',
+        estado TEXT CHECK(estado IN ('pendiente','aceptado','rechazado')) DEFAULT 'pendiente',
+        invitado_por INTEGER,
+        invitado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        respondido_en DATETIME,
+        FOREIGN KEY (id_equipo) REFERENCES equipos(id) ON DELETE CASCADE,
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
+        FOREIGN KEY (invitado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+        UNIQUE (id_equipo, id_usuario)
+      )`,
+      (error) => {
+        if (error) {
+          console.error("[DB] Error creando la tabla miembros_equipo", error);
+        }
+      }
+    );
+  });
+}
+
 function ensureDatabase(): SqliteDatabase {
   if (!globalThis.__agendaDb) {
     if (!fs.existsSync(dbPath)) {
@@ -38,7 +90,7 @@ function ensureDatabase(): SqliteDatabase {
       }
     );
 
-    globalThis.__agendaDb.run("PRAGMA foreign_keys = ON");
+    initializeTeamSchema(globalThis.__agendaDb);
     console.log(`[DB] Conectado a la base de datos SQLite en: ${dbPath}`);
   }
 
@@ -47,40 +99,49 @@ function ensureDatabase(): SqliteDatabase {
 
 //
 // --- FUNCIONES DE CONSULTA ---
-export function runQuery(sql: string, params: unknown[] = []): Promise<any> {
-  const db = ensureDatabase();
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (this: any, err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ lastID: this.lastID, changes: this.changes });
-      }
+export const db = {
+  run(sql: string, params: unknown[] = []): Promise<RunResult> {
+    const database = ensureDatabase();
+    return new Promise((resolve, reject) => {
+      database.run(sql, params, function (this: RunResult, err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ lastID: this.lastID, changes: this.changes });
+        }
+      });
     });
-  });
+  },
+  get<T>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+    const database = ensureDatabase();
+    return new Promise((resolve, reject) => {
+      database.get(sql, params, (err, row: T | undefined) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+  },
+  all<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+    const database = ensureDatabase();
+    return new Promise((resolve, reject) => {
+      database.all(sql, params, (err, rows: T[]) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+  },
+};
+
+export function runQuery(sql: string, params: unknown[] = []) {
+  return db.run(sql, params);
 }
 
-export function getQuery<T>(
-  sql: string,
-  params: unknown[] = []
-): Promise<T | undefined> {
-  const db = ensureDatabase();
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row: T | undefined) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
+export function getQuery<T>(sql: string, params: unknown[] = []) {
+  return db.get<T>(sql, params);
 }
 
-export function allQuery<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-  const db = ensureDatabase();
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows: T[]) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
+export function allQuery<T>(sql: string, params: unknown[] = []) {
+  return db.all<T>(sql, params);
 }
 
 //
