@@ -65,14 +65,18 @@ CREATE TABLE IF NOT EXISTS equipos (
 -- 5. Tabla: miembros_equipo
 -- ============================================================
 CREATE TABLE IF NOT EXISTS miembros_equipo (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_equipo   INTEGER NOT NULL,
-    id_usuario  INTEGER NOT NULL,
-    rol         TEXT CHECK(rol IN ('administrador','miembro')) DEFAULT 'miembro',
-    unido_en    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_equipo       INTEGER NOT NULL,
+    id_usuario      INTEGER NOT NULL,
+    rol             TEXT CHECK(rol IN ('administrador','miembro')) DEFAULT 'miembro',
+    estado          TEXT CHECK(estado IN ('pendiente','aceptado','rechazado')) DEFAULT 'pendiente',
+    invitado_por    INTEGER,  -- quién envió la invitación
+    invitado_en     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    respondido_en   DATETIME,
     FOREIGN KEY (id_equipo) REFERENCES equipos(id) ON DELETE CASCADE,
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
-    UNIQUE (id_equipo, id_usuario)  -- Evita duplicar miembros
+    FOREIGN KEY (invitado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+    UNIQUE (id_equipo, id_usuario)
 );
 
 -- ============================================================
