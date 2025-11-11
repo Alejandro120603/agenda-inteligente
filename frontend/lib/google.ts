@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { google } from "googleapis";
-import type { Credentials, OAuth2Client } from "google-auth-library";
+import type { Credentials } from "google-auth-library";
+import { OAuth2Client } from "google-auth-library";
 import { getQuery, runQuery } from "@/lib/db";
 
 /**
@@ -27,10 +27,9 @@ export interface ConfiguracionOAuth {
 }
 
 const DEFAULT_SCOPES = [
-  "https://www.googleapis.com/auth/calendar.events",
-  "openid",
-  "email",
-  "profile",
+  "https://www.googleapis.com/auth/calendar",
+  "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/userinfo.profile",
 ];
 
 const CREDENTIALS_PATH = path.join(
@@ -234,7 +233,7 @@ export function obtenerConfiguracionOAuth(): ConfiguracionOAuth {
 export function crearClienteOAuth(tokens?: Credentials): OAuth2Client {
   const { clientId, clientSecret, redirectUri } = obtenerConfiguracionOAuth();
 
-  const client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  const client = new OAuth2Client(clientId, clientSecret, redirectUri);
 
   if (tokens) {
     client.setCredentials(tokens);

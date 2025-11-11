@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EventClickArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -36,7 +35,6 @@ const esRegistroEvento = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object";
 
 export default function InicioPage() {
-  const router = useRouter();
   const [fecha, setFecha] = useState("");
   const [tareas, setTareas] = useState(0);
   const [eventosHoy, setEventosHoy] = useState(0);
@@ -195,10 +193,32 @@ export default function InicioPage() {
   }, []);
 
   // 🔁 Inicia el flujo de autenticación con Google Calendar
-  const manejarSincronizacionGoogle = useCallback(() => {
+  const manejarSincronizacionGoogle = useCallback(async () => {
     setSincronizandoGoogle(true);
-    router.push("/api/google/auth");
-  }, [router]);
+
+    try {
+      const respuesta = await fetch("/api/google/auth");
+
+      if (!respuesta.ok) {
+        throw new Error(`Solicitud fallida: ${respuesta.status}`);
+      }
+
+      const data: unknown = await respuesta.json();
+      const url =
+        data && typeof data === "object" && "url" in data
+          ? (data as { url?: unknown }).url
+          : undefined;
+
+      if (typeof url !== "string" || !url) {
+        throw new Error("Respuesta inválida de /api/google/auth");
+      }
+
+      window.location.href = url;
+    } catch (error) {
+      console.error("No fue posible iniciar la autenticación con Google:", error);
+      setSincronizandoGoogle(false);
+    }
+  }, []);
 
   useEffect(() => {
     cargarEventos();
