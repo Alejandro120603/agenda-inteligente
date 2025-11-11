@@ -187,7 +187,8 @@ export async function getUserByEmail(
 export async function createUser(
   nombre: string,
   correo: string,
-  password: string
+  password: string,
+  zonaHoraria?: string | null
 ): Promise<PublicUser> {
   if (!nombre || !correo || !password) {
     throw new Error("Nombre, correo y contraseña son requeridos");
@@ -196,8 +197,8 @@ export async function createUser(
   const passwordHash = await bcrypt.hash(password, 10);
 
   const insertResult = await runQuery(
-    "INSERT INTO usuarios (nombre, correo, password_hash, zona_horaria, creado_en) VALUES (?, ?, ?, NULL, datetime('now'))",
-    [nombre, correo, passwordHash]
+    "INSERT INTO usuarios (nombre, correo, password_hash, zona_horaria, creado_en) VALUES (?, ?, ?, ?, datetime('now'))",
+    [nombre, correo, passwordHash, zonaHoraria ?? null]
   );
 
   const insertedId = Number(insertResult.lastID);
