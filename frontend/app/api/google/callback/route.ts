@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { crearClienteOAuth, guardarTokens } from "@/lib/google";
+import {
+  crearClienteOAuth,
+  guardarTokens,
+  obtenerRedirectUriEfectiva,
+} from "@/lib/google";
 
 export const runtime = "nodejs";
 
@@ -9,6 +13,23 @@ const USER_ID = 1;
  * Gestiona la respuesta de Google, intercambiando el código por tokens y almacenándolos.
  */
 export async function GET(request: NextRequest) {
+  const errorParam = request.nextUrl.searchParams.get("error");
+
+  if (errorParam) {
+    console.error(
+      "[GoogleCallback] Google devolvió un error en la respuesta OAuth:",
+      errorParam,
+    );
+    return NextResponse.json(
+      {
+        error:
+          "Google rechazó la autenticación. Inténtalo nuevamente o revisa los permisos concedidos.",
+        detalle: errorParam,
+      },
+      { status: 400 },
+    );
+  }
+
   const code = request.nextUrl.searchParams.get("code");
 
   if (!code) {
@@ -19,13 +40,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const oauthClient = crearClienteOAuth();
-    const { tokens } = await oauthClient.getToken(code);
+    const redirectUri = obtenerRedirectUriEfectiva(request.nextUrl.origin);
+    const oauthClient = crearClienteOAuth({ redirectUri });
+    const { tokens } = await oauthClient.getToken({
+      code,
+      redirect_uri: redirectUri,
+    });
 
     oauthClient.setCredentials(tokens);
     await guardarTokens(USER_ID, tokens);
 
-    console.log("✅ Tokens guardados correctamente.");
+    console.log("[GoogleCallback] Token obtenido correctamente.");
 
     const maskedToken = tokens.access_token
       ? `${tokens.access_token.slice(0, 4)}...`

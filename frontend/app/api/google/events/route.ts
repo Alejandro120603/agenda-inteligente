@@ -29,7 +29,7 @@ export async function GET() {
     }
 
     let credentials = construirCredencialesDesdeFila(tokenRow);
-    const oauthClient = crearClienteOAuth(credentials);
+    const oauthClient = crearClienteOAuth({ tokens: credentials });
 
     if (tokenExpirado(tokenRow) || !credentials?.access_token) {
       if (!tokenRow.refresh_token) {

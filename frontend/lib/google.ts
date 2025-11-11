@@ -32,6 +32,7 @@ const DEFAULT_SCOPES = [
   "https://www.googleapis.com/auth/calendar",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
+  "openid",
 ];
 
 const CREDENTIALS_PATH = path.join(
@@ -43,6 +44,11 @@ const CREDENTIALS_PATH = path.join(
 let tablaGoogleTokensCreada = false;
 let tablaEventosCreada = false;
 let configuracionOAuthMemorizada: ConfiguracionOAuth | null = null;
+
+export interface CrearClienteOAuthOptions {
+  tokens?: Credentials | null;
+  redirectUri?: string;
+}
 
 /**
  * Obtiene los alcances solicitados a Google a partir de las variables de entorno.
@@ -278,25 +284,98 @@ function normalizarRedirectUri(uri: string): string {
   return sanitizada;
 }
 
+function ajustarRedirectUriConOrigen(
+  redirectUri: string,
+  origin?: string,
+): string {
+  if (!origin) {
+    return redirectUri;
+  }
+
+  try {
+    const redirectUrl = new URL(redirectUri);
+    const originUrl = new URL(origin);
+
+    const redirectHostname = redirectUrl.hostname.toLowerCase();
+
+    const esHostLocal = ["localhost", "127.0.0.1"].includes(redirectHostname);
+
+    if (!esHostLocal) {
+      if (
+        redirectUrl.hostname !== originUrl.hostname ||
+        redirectUrl.port !== originUrl.port ||
+        redirectUrl.protocol !== originUrl.protocol
+      ) {
+        console.warn(
+          `[Google OAuth] El origen de la petición (${originUrl.origin}) no coincide con la redirect_uri configurada (${redirectUrl.toString()}). Asegúrate de registrar ambos en Google Cloud Console.`,
+        );
+      }
+
+      return redirectUrl.toString();
+    }
+
+    const requiereAjuste =
+      redirectUrl.hostname !== originUrl.hostname ||
+      redirectUrl.port !== originUrl.port ||
+      redirectUrl.protocol !== originUrl.protocol;
+
+    if (!requiereAjuste) {
+      return redirectUrl.toString();
+    }
+
+    redirectUrl.hostname = originUrl.hostname;
+    redirectUrl.port = originUrl.port;
+    redirectUrl.protocol = originUrl.protocol;
+
+    const ajustada = redirectUrl.toString();
+    console.warn(
+      `[Google OAuth] La redirect_uri se ajustó automáticamente a ${ajustada} para coincidir con la URL de la solicitud entrante (${originUrl.origin}).`,
+    );
+
+    return ajustada;
+  } catch (error) {
+    console.error(
+      `[Google OAuth] No se pudo analizar la redirect_uri (${redirectUri}) u origen (${origin}).`,
+      error,
+    );
+    return redirectUri;
+  }
+}
+
+export function obtenerRedirectUriEfectiva(origin?: string): string {
+  const { redirectUri } = obtenerConfiguracionOAuth();
+  const normalizada = normalizarRedirectUri(redirectUri);
+  return ajustarRedirectUriConOrigen(normalizada, origin);
+}
+
 /**
  * Construye un cliente OAuth2 listo para usarse en la integración de Google Calendar.
  */
-export function crearClienteOAuth(tokens?: Credentials): OAuth2Client {
+export function crearClienteOAuth(
+  options: CrearClienteOAuthOptions = {},
+): OAuth2Client {
   const { clientId, clientSecret, redirectUri } = obtenerConfiguracionOAuth();
-  const redirectUriSegura = normalizarRedirectUri(redirectUri);
+  const redirectUriNormalizada = normalizarRedirectUri(
+    options.redirectUri ?? redirectUri,
+  );
 
   if (configuracionOAuthMemorizada) {
     configuracionOAuthMemorizada = {
       ...configuracionOAuthMemorizada,
-      redirectUri: redirectUriSegura,
+      redirectUri: redirectUriNormalizada,
     };
   }
 
-  const client = new OAuth2Client(clientId, clientSecret, redirectUriSegura);
-  console.log("[Google OAuth] URI usada:", redirectUriSegura);
+  const client = new OAuth2Client(
+    clientId,
+    clientSecret,
+    redirectUriNormalizada,
+  );
 
-  if (tokens) {
-    client.setCredentials(tokens);
+  console.log("[Google OAuth] URI usada:", redirectUriNormalizada);
+
+  if (options.tokens) {
+    client.setCredentials(options.tokens);
   }
 
   return client;
