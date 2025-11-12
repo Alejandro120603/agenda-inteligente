@@ -8,9 +8,9 @@ interface InvitacionRow {
   estado: string;
 }
 
-export async function POST(
-  _: Request,
-  context: { params: Promise<{ id: string }> }
+async function responderInvitacion(
+  context: { params: Promise<{ id: string }> },
+  nuevoEstado: "aceptado"
 ) {
   try {
     const user = await getUserFromSession();
@@ -54,9 +54,9 @@ export async function POST(
 
     const update = await db.run(
       `UPDATE miembros_equipo
-       SET estado = 'aceptado', respondido_en = CURRENT_TIMESTAMP
+       SET estado = ?, respondido_en = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [invitacionId]
+      [nuevoEstado, invitacionId]
     );
 
     if (!update.changes) {
@@ -68,10 +68,24 @@ export async function POST(
 
     return NextResponse.json({ success: true, message: "Invitación aceptada" });
   } catch (error) {
-    console.error("[POST /api/invitaciones/:id/aceptar]", error);
+    console.error("[/api/invitaciones/:id/aceptar]", error);
     return NextResponse.json(
       { error: "No se pudo aceptar la invitación" },
       { status: 500 }
     );
   }
+}
+
+export async function POST(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  return responderInvitacion(context, "aceptado");
+}
+
+export async function PATCH(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  return responderInvitacion(context, "aceptado");
 }

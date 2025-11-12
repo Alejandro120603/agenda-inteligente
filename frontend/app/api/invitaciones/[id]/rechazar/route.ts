@@ -8,9 +8,9 @@ interface InvitacionRow {
   estado: string;
 }
 
-export async function POST(
-  _: Request,
-  context: { params: Promise<{ id: string }> }
+async function responderInvitacion(
+  context: { params: Promise<{ id: string }> },
+  nuevoEstado: "rechazado"
 ) {
   try {
     const user = await getUserFromSession();
@@ -54,9 +54,9 @@ export async function POST(
 
     const update = await db.run(
       `UPDATE miembros_equipo
-       SET estado = 'rechazado', respondido_en = CURRENT_TIMESTAMP
+       SET estado = ?, respondido_en = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [invitacionId]
+      [nuevoEstado, invitacionId]
     );
 
     if (!update.changes) {
@@ -68,10 +68,24 @@ export async function POST(
 
     return NextResponse.json({ success: true, message: "Invitación rechazada" });
   } catch (error) {
-    console.error("[POST /api/invitaciones/:id/rechazar]", error);
+    console.error("[/api/invitaciones/:id/rechazar]", error);
     return NextResponse.json(
       { error: "No se pudo rechazar la invitación" },
       { status: 500 }
     );
   }
+}
+
+export async function POST(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  return responderInvitacion(context, "rechazado");
+}
+
+export async function PATCH(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  return responderInvitacion(context, "rechazado");
 }
