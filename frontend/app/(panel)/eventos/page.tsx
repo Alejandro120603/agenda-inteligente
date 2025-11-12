@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import CrearEventoModal from "@/components/CrearEventoModal";
 import useSWR from "swr";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -9,7 +10,7 @@ import type { EventInput } from "@fullcalendar/core";
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
-type TipoEventoUnificado = "evento" | "tarea" | "tarea_grupal";
+type TipoEventoUnificado = "evento" | "tarea_personal" | "tarea_grupal";
 
 type EstadoAsistencia = "pendiente" | "aceptado" | "rechazado" | null;
 
@@ -62,12 +63,12 @@ const fetcher = async (url: string): Promise<EventoUnificado[]> => {
 
 const obtenerColorPorTipo = (tipo: TipoEventoUnificado) => {
   switch (tipo) {
-    case "tarea":
-      return "#22c55e"; // green-500
+    case "tarea_personal":
+      return "#22c55e"; // verde
     case "tarea_grupal":
-      return "#a855f7"; // purple-500
+      return "#a855f7"; // morado
     default:
-      return "#2563eb"; // blue-600
+      return "#3b82f6"; // azul
   }
 };
 
@@ -118,14 +119,16 @@ const formatearFechaSimple = (fecha: string | null) => {
 };
 
 const legendItems = [
-  { label: "Eventos", color: "bg-blue-500" },
-  { label: "Tareas personales", color: "bg-green-500" },
-  { label: "Tareas grupales", color: "bg-purple-500" },
+  { label: "Eventos", color: "#3b82f6" },
+  { label: "Tareas personales", color: "#22c55e" },
+  { label: "Tareas grupales", color: "#a855f7" },
 ];
 
 const CalendarioUnificadoPage = () => {
   const [mensaje, setMensaje] = useState<{ tipo: "success" | "error"; texto: string } | null>(null);
   const [respuestaPendiente, setRespuestaPendiente] = useState<string | null>(null);
+  const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
+  const [toast, setToast] = useState<{ tipo: "success" | "error"; mensaje: string } | null>(null);
 
   const { data, error, isLoading, mutate } = useSWR<EventoUnificado[]>(
     "/api/events",
@@ -135,7 +138,37 @@ const CalendarioUnificadoPage = () => {
     }
   );
 
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timeout);
+  }, [toast]);
+
+  const abrirModalCrear = useCallback(() => {
+    setMostrarModalCrear(true);
+  }, []);
+
+  const cerrarModalCrear = useCallback(() => {
+    setMostrarModalCrear(false);
+  }, []);
+
   const eventos = useMemo(() => data ?? [], [data]);
+
+  const manejarCreacionExitosa = useCallback(
+    async (texto: string) => {
+      await mutate();
+      setToast({ tipo: "success", mensaje: texto });
+      cerrarModalCrear();
+    },
+    [mutate, cerrarModalCrear]
+  );
+
+  const manejarCreacionError = useCallback((texto: string) => {
+    setToast({ tipo: "error", mensaje: texto });
+  }, []);
 
   const eventosCalendario = useMemo<EventInput[]>(() => {
     return eventos
@@ -220,19 +253,33 @@ const CalendarioUnificadoPage = () => {
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
+    <>
+      <div className="flex flex-1 flex-col gap-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold text-gray-900">Calendario unificado de eventos y tareas</h1>
         <p className="text-gray-600">
           Consulta de un vistazo tus eventos, tareas personales y tareas grupales en un mismo calendario.
         </p>
-        <div className="flex flex-wrap items-center gap-4">
-          {legendItems.map((legend) => (
-            <div key={legend.label} className="flex items-center gap-2 text-sm text-gray-600">
-              <span className={`inline-flex h-3 w-3 rounded-full ${legend.color}`} aria-hidden="true" />
-              {legend.label}
-            </div>
-          ))}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-4">
+            {legendItems.map((legend) => (
+              <div key={legend.label} className="flex items-center gap-2 text-sm text-gray-600">
+                <span
+                  className="inline-flex h-3 w-3 rounded-full"
+                  style={{ backgroundColor: legend.color }}
+                  aria-hidden="true"
+                />
+                {legend.label}
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            onClick={abrirModalCrear}
+          >
+            Crear evento
+          </button>
         </div>
       </div>
 
@@ -314,8 +361,8 @@ const CalendarioUnificadoPage = () => {
                               {item.tipo === "evento"
                                 ? "Evento"
                                 : item.tipo === "tarea_grupal"
-                                ? "Tarea grupal"
-                                : "Tarea"}
+                                  ? "Tarea grupal"
+                                  : "Tarea personal"}
                             </span>
                           </div>
                           <p className="text-base font-semibold text-gray-900">
@@ -370,7 +417,37 @@ const CalendarioUnificadoPage = () => {
           </div>
         </aside>
       </div>
-    </div>
+      <CrearEventoModal
+        open={mostrarModalCrear}
+        onClose={cerrarModalCrear}
+        onCreated={manejarCreacionExitosa}
+        onError={manejarCreacionError}
+      />
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 flex max-w-sm items-start gap-3 rounded-2xl px-4 py-3 text-sm shadow-lg ${
+            toast.tipo === "success" ? "bg-green-600 text-white" : "bg-rose-600 text-white"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold uppercase tracking-wide">
+              {toast.tipo === "success" ? "Éxito" : "Error"}
+            </span>
+            <p className="text-sm leading-snug">{toast.mensaje}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Cerrar notificación"
+            className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30"
+            onClick={() => setToast(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
+    </>
   );
 };
 

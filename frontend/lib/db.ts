@@ -98,6 +98,46 @@ function initializeTeamSchema(database: SqliteDatabase) {
         }
       }
     );
+
+    database.run(
+      `CREATE TABLE IF NOT EXISTS tareas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_usuario INTEGER NOT NULL,
+        id_equipo INTEGER,
+        titulo TEXT NOT NULL,
+        descripcion TEXT,
+        fecha DATE NOT NULL,
+        es_grupal INTEGER NOT NULL DEFAULT 0,
+        tipo TEXT CHECK(tipo IN ('tarea_personal','tarea_grupal')) DEFAULT 'tarea_personal',
+        completada INTEGER NOT NULL DEFAULT 0,
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
+        FOREIGN KEY (id_equipo) REFERENCES equipos(id) ON DELETE SET NULL
+      )`,
+      (error) => {
+        if (error) {
+          console.error("[DB] Error creando la tabla tareas", error);
+        }
+      }
+    );
+
+    database.run(
+      "CREATE INDEX IF NOT EXISTS idx_tareas_usuario ON tareas(id_usuario)",
+      (error) => {
+        if (error) {
+          console.error("[DB] Error creando el índice idx_tareas_usuario", error);
+        }
+      }
+    );
+
+    database.run(
+      "CREATE INDEX IF NOT EXISTS idx_tareas_equipo ON tareas(id_equipo)",
+      (error) => {
+        if (error) {
+          console.error("[DB] Error creando el índice idx_tareas_equipo", error);
+        }
+      }
+    );
   });
 }
 

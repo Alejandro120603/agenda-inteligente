@@ -36,7 +36,7 @@ interface TareaDinamicaRow {
   equipo_nombre?: string | null;
 }
 
-type TipoUnificado = "evento" | "tarea" | "tarea_grupal";
+type TipoUnificado = "evento" | "tarea_personal" | "tarea_grupal";
 
 interface EventoUnificado {
   id: string;
@@ -75,11 +75,11 @@ function inferirTipoTarea(tarea: TareaDinamicaRow): TipoUnificado {
   const { es_grupal, tipo_registro, id_equipo } = tarea;
 
   if (typeof es_grupal === "number") {
-    return es_grupal !== 0 ? "tarea_grupal" : "tarea";
+    return es_grupal !== 0 ? "tarea_grupal" : "tarea_personal";
   }
 
   if (typeof es_grupal === "boolean") {
-    return es_grupal ? "tarea_grupal" : "tarea";
+    return es_grupal ? "tarea_grupal" : "tarea_personal";
   }
 
   if (typeof tipo_registro === "string") {
@@ -93,7 +93,7 @@ function inferirTipoTarea(tarea: TareaDinamicaRow): TipoUnificado {
     return "tarea_grupal";
   }
 
-  return "tarea";
+  return "tarea_personal";
 }
 
 function obtenerFechaComparable(evento: EventoUnificado): string | null {
@@ -302,6 +302,80 @@ export async function GET() {
   }
 }
 
+type TipoCreacion = "evento" | "tarea_personal" | "tarea_grupal";
+
+const TIPOS_CREACION = new Set<TipoCreacion>([
+  "evento",
+  "tarea_personal",
+  "tarea_grupal",
+]);
+
+function normalizarTextoOpcional(valor: unknown): string | null {
+  if (typeof valor !== "string") {
+    return null;
+  }
+
+  const limpio = valor.trim();
+  return limpio.length > 0 ? limpio : null;
+}
+
+function normalizarFecha(fecha: unknown): string | null {
+  if (typeof fecha !== "string") {
+    return null;
+  }
+
+  const trimmed = fecha.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function normalizarHora(hora: unknown): string | null {
+  if (typeof hora !== "string") {
+    return null;
+  }
+
+  const trimmed = hora.trim();
+  if (/^\d{2}:\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+function combinarFechaHoraStrings(fecha: string, hora: string): string {
+  const horaNormalizada = hora.length === 5 ? `${hora}:00` : hora;
+  return `${fecha}T${horaNormalizada}`;
+}
+
+function normalizarBandera(valor: unknown): boolean {
+  if (typeof valor === "boolean") {
+    return valor;
+  }
+
+  if (typeof valor === "number") {
+    return valor !== 0;
+  }
+
+  if (typeof valor === "string") {
+    const limpio = valor.trim().toLowerCase();
+    return ["1", "true", "si", "sí", "on"].includes(limpio);
+  }
+
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const userId = await obtenerUsuarioAutenticado();
@@ -311,51 +385,77 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const {
-      titulo,
-      descripcion = null,
-      inicio,
-      fin,
-      ubicacion = null,
-      tipo = "personal",
-      recordatorio = 0,
-      id_equipo: idEquipoPayload = null,
-    } = body ?? {};
 
-    if (!titulo || typeof titulo !== "string") {
+    const tituloValor =
+      typeof body.titulo === "string" ? body.titulo.trim() : "";
+    if (!tituloValor) {
       return NextResponse.json(
         { error: "El título es obligatorio" },
         { status: 400 }
       );
     }
 
-    if (!inicio || !fin) {
+    const descripcionNormalizada = normalizarTextoOpcional(body.descripcion);
+    const fechaInicio = normalizarFecha(body.fecha_inicio);
+    const fechaFin = normalizarFecha(body.fecha_fin);
+    const horaInicio = normalizarHora(body.hora_inicio);
+    const horaFin = normalizarHora(body.hora_fin);
+
+    if (!fechaInicio || !fechaFin || !horaInicio || !horaFin) {
       return NextResponse.json(
-        { error: "Las fechas de inicio y fin son obligatorias" },
+        { error: "Debes indicar una fecha y hora de inicio y fin" },
         { status: 400 }
       );
     }
 
-    const tiposPermitidos = new Set(["personal", "equipo", "otro"]);
-    const tipoEvento =
-      tipo === "equipo" ? "equipo" : tiposPermitidos.has(tipo) ? tipo : "personal";
+    const inicioIso = combinarFechaHoraStrings(fechaInicio, horaInicio);
+    const finIso = combinarFechaHoraStrings(fechaFin, horaFin);
 
-    const recordatorioValor = Number.isFinite(Number(recordatorio))
-      ? Number(recordatorio)
-      : 0;
+    const inicioDate = new Date(inicioIso);
+    const finDate = new Date(finIso);
 
-    const descripcionNormalizada =
-      typeof descripcion === "string" && descripcion.trim().length > 0
-        ? descripcion
-        : null;
-    const ubicacionNormalizada =
-      typeof ubicacion === "string" && ubicacion.trim().length > 0
-        ? ubicacion
-        : null;
+    if (Number.isNaN(inicioDate.getTime()) || Number.isNaN(finDate.getTime())) {
+      return NextResponse.json(
+        { error: "Las fechas proporcionadas no son válidas" },
+        { status: 400 }
+      );
+    }
 
-    if (tipoEvento === "equipo") {
-      const equipoId = Number(idEquipoPayload);
-      if (!Number.isInteger(equipoId)) {
+    if (finDate.getTime() <= inicioDate.getTime()) {
+      return NextResponse.json(
+        { error: "La fecha de fin debe ser posterior a la de inicio" },
+        { status: 400 }
+      );
+    }
+
+    const tipoRaw = typeof body.tipo === "string" ? body.tipo.trim() : "";
+    if (!TIPOS_CREACION.has(tipoRaw as TipoCreacion)) {
+      return NextResponse.json(
+        { error: "Tipo de registro inválido" },
+        { status: 400 }
+      );
+    }
+
+    const esEquipo = normalizarBandera(body.es_equipo);
+    let tipoSolicitud = tipoRaw as TipoCreacion;
+
+    if (tipoSolicitud === "tarea_grupal" && !esEquipo) {
+      return NextResponse.json(
+        { error: "Las tareas grupales requieren un equipo" },
+        { status: 400 }
+      );
+    }
+
+    if (esEquipo && tipoSolicitud === "evento") {
+      tipoSolicitud = "tarea_grupal";
+    }
+
+    const tipoFinal: TipoCreacion = esEquipo ? "tarea_grupal" : tipoSolicitud;
+    const requiereEquipo = tipoFinal === "tarea_grupal";
+    const equipoId = requiereEquipo ? Number(body.equipo_id) : null;
+
+    if (requiereEquipo) {
+      if (!Number.isInteger(equipoId) || (equipoId ?? 0) <= 0) {
         return NextResponse.json(
           { error: "Debes seleccionar un equipo válido" },
           { status: 400 }
@@ -375,86 +475,50 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
+    }
 
-      const miembros = await allQuery<{ id_usuario: number }>(
-        `SELECT id_usuario
-         FROM miembros_equipo
-         WHERE id_equipo = ? AND estado = 'aceptado'`,
-        [equipoId]
+    if (tipoFinal === "evento") {
+      const insertResult = await runQuery(
+        `INSERT INTO eventos_internos
+          (id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio)
+         VALUES (?, NULL, ?, ?, ?, ?, NULL, ?, 0)`,
+        [
+          userId,
+          tituloValor,
+          descripcionNormalizada,
+          inicioIso,
+          finIso,
+          "personal",
+        ]
       );
 
-      if (miembros.length === 0) {
-        return NextResponse.json(
-          { error: "El equipo no tiene miembros activos" },
-          { status: 400 }
-        );
-      }
-
-      await runQuery("BEGIN TRANSACTION");
-      try {
-        const insertResult = await runQuery(
-          `INSERT INTO eventos_internos
-            (id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            userId,
-            equipoId,
-            titulo.trim(),
-            descripcionNormalizada,
-            inicio,
-            fin,
-            ubicacionNormalizada,
-            tipoEvento,
-            recordatorioValor,
-          ]
-        );
-
-        const id = Number(insertResult.lastID);
-        const fechaRespuesta = new Date().toISOString();
-
-        for (const miembro of miembros) {
-          const participanteId = miembro.id_usuario;
-          const estadoAsistencia =
-            participanteId === userId ? "aceptado" : "pendiente";
-          const respondidoEn =
-            participanteId === userId ? fechaRespuesta : null;
-
-          await runQuery(
-            `INSERT OR IGNORE INTO participantes_evento_interno
-              (id_evento, id_usuario, estado_asistencia, respondido_en)
-             VALUES (?, ?, ?, ?)`,
-            [id, participanteId, estadoAsistencia, respondidoEn]
-          );
-        }
-
-        await runQuery("COMMIT");
-
-        return NextResponse.json({ id, message: "Evento creado correctamente" });
-      } catch (transactionError) {
-        await runQuery("ROLLBACK");
-        throw transactionError;
-      }
+      const id = Number(insertResult.lastID);
+      return NextResponse.json(
+        { id, tipo: tipoFinal, message: "Evento creado correctamente" },
+        { status: 201 }
+      );
     }
 
     const insertResult = await runQuery(
-      `INSERT INTO eventos_internos
-        (id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio)
-       VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tareas
+        (id_usuario, id_equipo, titulo, descripcion, fecha, es_grupal, tipo)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
-        titulo.trim(),
+        requiereEquipo ? equipoId : null,
+        tituloValor,
         descripcionNormalizada,
-        inicio,
-        fin,
-        ubicacionNormalizada,
-        tipoEvento,
-        recordatorioValor,
+        fechaInicio,
+        requiereEquipo ? 1 : 0,
+        tipoFinal,
       ]
     );
 
     const id = Number(insertResult.lastID);
-
-    return NextResponse.json({ id, message: "Evento creado correctamente" });
+    return NextResponse.json(
+      { id, tipo: tipoFinal, message: "Tarea registrada correctamente" },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("[POST /api/events]", error);
     return NextResponse.json(
