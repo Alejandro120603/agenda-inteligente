@@ -21,7 +21,75 @@ type Evento = {
   fin: string;
   ubicacion: string | null;
   tipo: TipoEvento | null;
+  equipoNombre?: string | null;
 };
+
+type DashboardEvento = {
+  id: number;
+  titulo: string;
+  descripcion: string | null;
+  inicio: string;
+  fin: string;
+  tipo: TipoEvento;
+  equipoNombre: string | null;
+};
+
+type DashboardTarea = {
+  id: number;
+  titulo: string;
+  descripcion: string | null;
+  fecha: string | null;
+  tipo: "tarea" | "tarea_grupal";
+  equipoNombre: string | null;
+};
+
+type DashboardTodayResponse = {
+  nombre: string;
+  fechaIso: string;
+  fechaLegible: string;
+  totalEventos: number;
+  totalTareas: number;
+  eventos: DashboardEvento[];
+  tareas: DashboardTarea[];
+};
+
+type Notificacion = {
+  id: string;
+  mensaje: string;
+  fecha: string;
+  tipo: "equipo" | "evento";
+  estado: "pendiente" | "aceptado" | "rechazado" | null;
+  puedeResponder: boolean;
+  invitacionId?: number;
+};
+
+type ItemHoy = {
+  id: string;
+  titulo: string;
+  tipo: "evento" | "tarea" | "tarea_grupal";
+  inicio: string | null;
+  fin: string | null;
+  fecha: string | null;
+  equipoNombre: string | null;
+  descripcion?: string | null;
+};
+
+const intlFechaResumen = new Intl.DateTimeFormat("es-ES", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+const intlFechaNotificacion = new Intl.DateTimeFormat("es-ES", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+const intlHora = new Intl.DateTimeFormat("es-ES", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 const esEventosWrapper = (value: unknown): value is { eventos: unknown[] } => {
   if (!value || typeof value !== "object") {
@@ -34,11 +102,142 @@ const esEventosWrapper = (value: unknown): value is { eventos: unknown[] } => {
 const esRegistroEvento = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object";
 
+function capitalizar(texto: string): string {
+  if (!texto) {
+    return "";
+  }
+
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function obtenerHora(valor: string | null): string | null {
+  if (!valor) {
+    return null;
+  }
+
+  const parsed = new Date(valor);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return intlHora.format(parsed);
+}
+
+function formatearHoraItem(item: ItemHoy): string {
+  if (item.tipo === "evento") {
+    const inicio = obtenerHora(item.inicio);
+    const fin = obtenerHora(item.fin);
+
+    if (inicio && fin) {
+      return `${inicio} - ${fin}`;
+    }
+
+    if (inicio) {
+      return inicio;
+    }
+
+    if (fin) {
+      return fin;
+    }
+
+    return "Sin hora definida";
+  }
+
+  if (!item.fecha) {
+    return "Sin hora";
+  }
+
+  if (/T\d{2}:\d{2}/.test(item.fecha)) {
+    const hora = obtenerHora(item.fecha);
+    return hora ?? "Sin hora";
+  }
+
+  return "Todo el día";
+}
+
+function formatearFechaNotificacion(fecha: string): string {
+  const parsed = new Date(fecha);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return "Fecha desconocida";
+  }
+
+  return intlFechaNotificacion.format(parsed);
+}
+
+function obtenerTimestamp(item: ItemHoy): number {
+  const referencia = item.tipo === "evento" ? item.inicio ?? item.fin : item.fecha;
+
+  if (!referencia) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const parsed = new Date(referencia);
+  if (Number.isNaN(parsed.getTime())) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return parsed.getTime();
+}
+
+function obtenerEtiquetaTipo(item: ItemHoy): { texto: string; clases: string } {
+  if (item.tipo === "evento") {
+    return { texto: "Evento", clases: "bg-blue-100 text-blue-700" };
+  }
+
+  if (item.tipo === "tarea_grupal") {
+    return { texto: "Tarea grupal", clases: "bg-purple-100 text-purple-700" };
+  }
+
+  return { texto: "Tarea personal", clases: "bg-emerald-100 text-emerald-700" };
+}
+
+function obtenerEtiquetaEstado(notificacion: Notificacion): { texto: string; clases: string } | null {
+  if (!notificacion.estado || notificacion.puedeResponder) {
+    return null;
+  }
+
+  if (notificacion.estado === "aceptado") {
+    return { texto: "Aceptado", clases: "bg-emerald-100 text-emerald-700" };
+  }
+
+  if (notificacion.estado === "rechazado") {
+    return { texto: "Rechazado", clases: "bg-rose-100 text-rose-700" };
+  }
+
+  return { texto: "Pendiente", clases: "bg-gray-100 text-gray-600" };
+}
+
+function formatearTipo(tipo: TipoEvento | null | undefined) {
+  if (!tipo) {
+    return "Sin especificar";
+  }
+
+  return tipo.charAt(0).toUpperCase() + tipo.slice(1);
+}
+
+function formatearFechaDetallada(valor: string) {
+  const fecha = new Date(valor);
+  if (Number.isNaN(fecha.getTime())) {
+    return "Fecha no disponible";
+  }
+
+  return fecha.toLocaleString("es-ES", {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+}
+
 export default function InicioPage() {
-  const [fecha, setFecha] = useState("");
-  const [tareas, setTareas] = useState(0);
-  const [eventosHoy, setEventosHoy] = useState(0);
-  const [nombre, setNombre] = useState<string>("invitado");
+  const [dashboard, setDashboard] = useState<DashboardTodayResponse | null>(null);
+  const [cargandoDashboard, setCargandoDashboard] = useState(true);
+  const [errorDashboard, setErrorDashboard] = useState<string | null>(null);
+
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+  const [cargandoNotificaciones, setCargandoNotificaciones] = useState(true);
+  const [errorNotificaciones, setErrorNotificaciones] = useState<string | null>(null);
+  const [accionInvitacion, setAccionInvitacion] = useState<number | null>(null);
+
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [cargandoEventos, setCargandoEventos] = useState(true);
   const [mostrarModal, setMostrarModal] = useState(false);
@@ -46,51 +245,107 @@ export default function InicioPage() {
   const [eventoSeleccionado, setEventoSeleccionado] = useState<Evento | null>(null);
   const cierreModalTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // 📅 Fecha y usuario
-  useEffect(() => {
-    // Fecha actual en español
-    const hoy = new Date();
-    const opciones = {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    } as const;
-    setFecha(hoy.toLocaleDateString("es-ES", opciones));
+  const cargarDashboard = useCallback(async () => {
+    try {
+      setCargandoDashboard(true);
+      setErrorDashboard(null);
 
-    setTareas(3); // placeholder
+      const respuesta = await fetch("/api/dashboard/today", {
+        method: "GET",
+        credentials: "include",
+      });
 
-    // 🧠 Obtener nombre real desde /api/user
-    const fetchUser = async () => {
-      try {
-        const res = await fetch("/api/user", {
-          method: "GET",
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          if (res.status === 401 || res.status === 404) {
-            setNombre("invitado");
-            return;
-          }
-          console.warn("No se pudo obtener el usuario:", res.status);
-          setNombre("invitado");
+      if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+          setDashboard(null);
+          setErrorDashboard("Inicia sesión para ver tu resumen diario.");
           return;
         }
 
-        const data: { id?: number; name?: string | null; email?: string | null } =
-          await res.json();
-        setNombre(data?.name ? String(data.name) : "invitado");
-      } catch (err) {
-        console.error("Error al obtener el usuario:", err);
-        setNombre("invitado");
+        throw new Error(`Error ${respuesta.status}`);
       }
-    };
 
-    fetchUser();
+      const data: unknown = await respuesta.json();
+      if (!data || typeof data !== "object") {
+        throw new Error("Respuesta inesperada del servidor");
+      }
+
+      const normalizado = data as DashboardTodayResponse;
+      setDashboard(normalizado);
+    } catch (error) {
+      console.error("[Dashboard] Error al cargar el resumen", error);
+      setDashboard(null);
+      setErrorDashboard("No pudimos cargar tu día. Intenta nuevamente más tarde.");
+    } finally {
+      setCargandoDashboard(false);
+    }
   }, []);
 
-  // 🔄 Cargar eventos del usuario autenticado
+  const cargarNotificaciones = useCallback(async () => {
+    try {
+      setCargandoNotificaciones(true);
+      setErrorNotificaciones(null);
+
+      const respuesta = await fetch("/api/notificaciones", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+          setNotificaciones([]);
+          setErrorNotificaciones("Inicia sesión para ver tus notificaciones.");
+          return;
+        }
+
+        throw new Error(`Error ${respuesta.status}`);
+      }
+
+      const data: unknown = await respuesta.json();
+      if (
+        !data ||
+        typeof data !== "object" ||
+        !Array.isArray((data as { notificaciones?: unknown }).notificaciones)
+      ) {
+        throw new Error("Respuesta inesperada del servidor");
+      }
+
+      setNotificaciones((data as { notificaciones: Notificacion[] }).notificaciones);
+    } catch (error) {
+      console.error("[Notificaciones] Error al cargar", error);
+      setNotificaciones([]);
+      setErrorNotificaciones("No pudimos cargar la actividad reciente.");
+    } finally {
+      setCargandoNotificaciones(false);
+    }
+  }, []);
+
+  const manejarAccionInvitacion = useCallback(
+    async (invitacionId: number, accion: "aceptar" | "rechazar") => {
+      try {
+        setAccionInvitacion(invitacionId);
+        setErrorNotificaciones(null);
+
+        const respuesta = await fetch(`/api/invitaciones/${invitacionId}/${accion}`, {
+          method: "PATCH",
+          credentials: "include",
+        });
+
+        if (!respuesta.ok) {
+          throw new Error(`Error ${respuesta.status}`);
+        }
+
+        await cargarNotificaciones();
+      } catch (error) {
+        console.error("[Invitaciones] Error al actualizar", error);
+        setErrorNotificaciones("No se pudo actualizar la invitación. Intenta de nuevo.");
+      } finally {
+        setAccionInvitacion(null);
+      }
+    },
+    [cargarNotificaciones],
+  );
+
   const cargarEventos = useCallback(async () => {
     try {
       setCargandoEventos(true);
@@ -101,7 +356,6 @@ export default function InicioPage() {
 
       if (!respuesta.ok) {
         if (respuesta.status === 401) {
-          setEventosHoy(0);
           setEventos([]);
           return;
         }
@@ -113,8 +367,8 @@ export default function InicioPage() {
       const listaBruta: unknown[] = Array.isArray(data)
         ? data
         : esEventosWrapper(data)
-        ? data.eventos
-        : [];
+          ? data.eventos
+          : [];
 
       const listaNormalizada = listaBruta
         .filter(esRegistroEvento)
@@ -138,12 +392,13 @@ export default function InicioPage() {
             typeof idValue === "number"
               ? idValue
               : typeof idValue === "string"
-              ? Number.parseInt(idValue, 10)
-              : NaN;
+                ? Number.parseInt(idValue, 10)
+                : NaN;
 
           const tituloValue = item.titulo;
           const descripcionValue = item.descripcion;
           const ubicacionValue = item.ubicacion;
+          const equipoValue = (item as { equipo_nombre?: unknown }).equipo_nombre;
 
           return {
             id: idNormalizado,
@@ -151,40 +406,36 @@ export default function InicioPage() {
               typeof tituloValue === "string"
                 ? tituloValue
                 : tituloValue === null
-                ? null
-                : null,
+                  ? null
+                  : null,
             descripcion:
               typeof descripcionValue === "string"
                 ? descripcionValue
                 : descripcionValue === null
-                ? null
-                : null,
+                  ? null
+                  : null,
             inicio: inicioValue,
             fin: finValue,
             ubicacion:
               typeof ubicacionValue === "string"
                 ? ubicacionValue
                 : ubicacionValue === null
-                ? null
-                : null,
+                  ? null
+                  : null,
             tipo: tipoEvento,
-          };
+            equipoNombre:
+              typeof equipoValue === "string"
+                ? equipoValue
+                : equipoValue === null
+                  ? null
+                  : null,
+          } satisfies Evento;
         })
         .filter((evento): evento is Evento => Boolean(evento) && Number.isFinite(evento.id));
 
-      // Contar los eventos de hoy
-      const hoy = new Date();
-      const eventosDelDia = listaNormalizada.filter((evento) => {
-        if (!evento.inicio) return false;
-        const fechaInicio = new Date(evento.inicio);
-        return fechaInicio.toDateString() === hoy.toDateString();
-      }).length;
-
-      setEventosHoy(eventosDelDia);
       setEventos(listaNormalizada);
     } catch (error) {
-      console.error("Error al cargar eventos:", error);
-      setEventosHoy(0);
+      console.error("[Eventos] Error al cargar eventos", error);
       setEventos([]);
     } finally {
       setCargandoEventos(false);
@@ -192,12 +443,27 @@ export default function InicioPage() {
   }, []);
 
   useEffect(() => {
+    cargarDashboard();
+  }, [cargarDashboard]);
+
+  useEffect(() => {
+    cargarNotificaciones();
+  }, [cargarNotificaciones]);
+
+  useEffect(() => {
     cargarEventos();
   }, [cargarEventos]);
 
+  useEffect(() => {
+    return () => {
+      if (cierreModalTimeout.current) {
+        clearTimeout(cierreModalTimeout.current);
+      }
+    };
+  }, []);
+
   const plugins = useMemo(() => [dayGridPlugin, interactionPlugin], []);
 
-  // 🛈 Este calendario funciona únicamente como visor, sin creación rápida desde la vista mensual.
   const eventosCalendario = useMemo(
     () =>
       eventos.map((evento) => ({
@@ -209,6 +475,7 @@ export default function InicioPage() {
           descripcion: evento.descripcion,
           ubicacion: evento.ubicacion,
           tipo: evento.tipo,
+          equipoNombre: evento.equipoNombre,
         },
       })),
     [eventos],
@@ -238,14 +505,6 @@ export default function InicioPage() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (cierreModalTimeout.current) {
-        clearTimeout(cierreModalTimeout.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     if (!mostrarModal) {
       return;
     }
@@ -272,71 +531,205 @@ export default function InicioPage() {
     [eventos, abrirModalEvento],
   );
 
-  const formatearFecha = useCallback((valor: string) => {
-    const fecha = new Date(valor);
-    if (Number.isNaN(fecha.getTime())) {
-      return "Fecha no disponible";
+  const nombreUsuario = dashboard?.nombre ?? "invitado";
+  const fechaResumen = capitalizar(dashboard?.fechaLegible ?? intlFechaResumen.format(new Date()));
+  const totalTareasHoy = dashboard?.totalTareas ?? 0;
+  const totalEventosHoy = dashboard?.totalEventos ?? 0;
+
+  const itemsHoy = useMemo(() => {
+    if (!dashboard) {
+      return [] as ItemHoy[];
     }
 
-    return fecha.toLocaleString("es-ES", {
-      dateStyle: "full",
-      timeStyle: "short",
+    const lista: ItemHoy[] = [];
+
+    dashboard.eventos.forEach((evento) => {
+      lista.push({
+        id: `evento-${evento.id}`,
+        titulo: evento.titulo ?? "(Sin título)",
+        tipo: "evento",
+        inicio: evento.inicio,
+        fin: evento.fin,
+        fecha: evento.inicio ?? null,
+        equipoNombre: evento.equipoNombre ?? null,
+        descripcion: evento.descripcion,
+      });
     });
-  }, []);
 
-  const formatearTipo = useCallback((tipo: TipoEvento | null | undefined) => {
-    if (!tipo) {
-      return "Sin especificar";
-    }
+    dashboard.tareas.forEach((tarea) => {
+      lista.push({
+        id: `tarea-${tarea.id}`,
+        titulo: tarea.titulo,
+        tipo: tarea.tipo,
+        inicio: null,
+        fin: null,
+        fecha: tarea.fecha ?? null,
+        equipoNombre: tarea.equipoNombre ?? null,
+        descripcion: tarea.descripcion,
+      });
+    });
 
-    return tipo.charAt(0).toUpperCase() + tipo.slice(1);
-  }, []);
+    return lista.sort((a, b) => obtenerTimestamp(a) - obtenerTimestamp(b));
+  }, [dashboard]);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 p-6">
-      {/* Sección izquierda */}
-      <div className="flex-1">
-        <h1 className="text-3xl font-semibold mb-1">Hola, {nombre} 👋</h1>
-        <p className="text-gray-600 mb-6">
-          Hoy es {fecha}. Tienes{" "}
-          <span className="font-medium">{tareas}</span> tareas y{" "}
-          <span className="font-medium">{eventosHoy}</span> eventos para hoy.
+    <div className="flex flex-col gap-6 p-6">
+      <header>
+        <h1 className="text-3xl font-semibold mb-1">Hola, {nombreUsuario} 👋</h1>
+        <p className="text-gray-600">
+          Hoy es {fechaResumen}. Tienes {" "}
+          <span className="font-medium">{totalTareasHoy}</span> tareas y {" "}
+          <span className="font-medium">{totalEventosHoy}</span> eventos para hoy.
         </p>
+      </header>
 
-        <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">
-            Calendario interno de tus eventos
-          </h2>
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Hoy</h2>
+              {cargandoDashboard && <span className="text-sm text-gray-400">Actualizando...</span>}
+            </div>
+            {errorDashboard && (
+              <p className="mt-2 text-sm text-rose-600">{errorDashboard}</p>
+            )}
 
-          {cargandoEventos ? (
-            <p className="text-gray-500">Cargando tus eventos...</p>
-          ) : (
-            <FullCalendar
-              plugins={plugins}
-              initialView="dayGridMonth"
-              locale="es"
-              events={eventosCalendario}
-              height="auto"
-              eventClick={manejarClickEvento}
-              headerToolbar={{
-                start: "title",
-                center: "",
-                end: "prev,next today",
-              }}
-            />
-          )}
+            {!cargandoDashboard && itemsHoy.length === 0 ? (
+              <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-gray-600">
+                No tienes eventos ni tareas para hoy 🎉
+              </div>
+            ) : (
+              <ul className="mt-6 space-y-4">
+                {itemsHoy.map((item) => {
+                  const etiqueta = obtenerEtiquetaTipo(item);
+                  return (
+                    <li
+                      key={item.id}
+                      className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="flex flex-1 flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${etiqueta.clases}`}>
+                            {etiqueta.texto}
+                          </span>
+                          {item.equipoNombre && (
+                            <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                              Equipo: {item.equipoNombre}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-base font-semibold text-gray-900">{item.titulo}</p>
+                        <p className="text-sm text-gray-600">{formatearHoraItem(item)}</p>
+                        {item.descripcion && (
+                          <p className="text-sm text-gray-500">{item.descripcion}</p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Calendario interno</h2>
+              <span className="text-sm text-gray-500">Solo lectura</span>
+            </div>
+
+            <div className="mt-4">
+              {cargandoEventos ? (
+                <p className="text-gray-500">Cargando tus eventos...</p>
+              ) : (
+                <FullCalendar
+                  plugins={plugins}
+                  initialView="dayGridMonth"
+                  locale="es"
+                  events={eventosCalendario}
+                  height="auto"
+                  eventClick={manejarClickEvento}
+                  headerToolbar={{
+                    start: "title",
+                    center: "",
+                    end: "prev,next today",
+                  }}
+                />
+              )}
+            </div>
+          </section>
         </div>
-      </div>
 
-      {/* Sección derecha */}
-      <div className="w-full lg:w-1/3">
-        <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
-          <h2 className="text-lg font-semibold mb-2">Resumen diario</h2>
-          <p className="text-gray-600 text-sm">
-            Consulta tus eventos programados y revisa los detalles en cualquier
-            momento.
-          </p>
-        </div>
+        <aside className="space-y-6">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-xl font-semibold">Actividad reciente</h2>
+              <button
+                type="button"
+                onClick={cargarNotificaciones}
+                className="rounded-lg border border-gray-200 px-3 py-1 text-sm font-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50"
+              >
+                Actualizar
+              </button>
+            </div>
+
+            {errorNotificaciones && (
+              <p className="mb-3 text-sm text-rose-600">{errorNotificaciones}</p>
+            )}
+
+            {cargandoNotificaciones ? (
+              <p className="text-gray-500">Cargando actividad...</p>
+            ) : notificaciones.length === 0 ? (
+              <p className="text-gray-500">No hay notificaciones recientes.</p>
+            ) : (
+              <ul className="space-y-4">
+                {notificaciones.map((notificacion) => {
+                  const etiquetaEstado = obtenerEtiquetaEstado(notificacion);
+
+                  return (
+                    <li
+                      key={notificacion.id}
+                      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm font-medium text-gray-900">{notificacion.mensaje}</p>
+                        <span className="text-xs text-gray-500">
+                          {formatearFechaNotificacion(notificacion.fecha)}
+                        </span>
+                        {etiquetaEstado && (
+                          <span
+                            className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-medium ${etiquetaEstado.clases}`}
+                          >
+                            {etiquetaEstado.texto}
+                          </span>
+                        )}
+                        {notificacion.puedeResponder && notificacion.invitacionId && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => manejarAccionInvitacion(notificacion.invitacionId!, "aceptar")}
+                              disabled={accionInvitacion === notificacion.invitacionId}
+                              className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                              Aceptar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => manejarAccionInvitacion(notificacion.invitacionId!, "rechazar")}
+                              disabled={accionInvitacion === notificacion.invitacionId}
+                              className="rounded-lg bg-rose-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                              Rechazar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </aside>
       </div>
 
       {mostrarModal && eventoSeleccionado && (
@@ -367,11 +760,11 @@ export default function InicioPage() {
             <div className="mt-6 space-y-4 text-sm text-gray-700">
               <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-4">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Inicio</p>
-                <p className="mt-1 font-medium text-gray-900">{formatearFecha(eventoSeleccionado.inicio)}</p>
+                <p className="mt-1 font-medium text-gray-900">{formatearFechaDetallada(eventoSeleccionado.inicio)}</p>
               </div>
               <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-4">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Fin</p>
-                <p className="mt-1 font-medium text-gray-900">{formatearFecha(eventoSeleccionado.fin)}</p>
+                <p className="mt-1 font-medium text-gray-900">{formatearFechaDetallada(eventoSeleccionado.fin)}</p>
               </div>
               <div className="rounded-lg border border-gray-100 bg-white p-4">
                 <p className="text-xs uppercase tracking-wide text-gray-500">Ubicación</p>
