@@ -1,1156 +1,377 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import type { EventInput } from "@fullcalendar/core";
 
-// Cargamos FullCalendar dinámicamente para evitar problemas con SSR en Next.js
-const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
-  ssr: false,
-});
+const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
-type TipoEvento = "personal" | "equipo" | "otro";
+type TipoEventoUnificado = "evento" | "tarea" | "tarea_grupal";
 
 type EstadoAsistencia = "pendiente" | "aceptado" | "rechazado" | null;
 
-type Equipo = {
-  id: number;
-  nombre: string;
-};
-
-type Evento = {
-  id: number;
+type EventoUnificado = {
+  id: string;
+  source: "evento_interno" | "tarea";
+  sourceId: number;
+  tipo: TipoEventoUnificado;
   titulo: string;
-  descripcion?: string | null;
-  inicio: string;
-  fin: string;
-  ubicacion?: string | null;
-  tipo: TipoEvento;
-  recordatorio?: number | null;
-  id_equipo?: number | null;
-  equipo_nombre?: string | null;
-  estado_asistencia?: EstadoAsistencia;
-  es_organizador?: boolean;
-  es_participante?: boolean;
+  descripcion: string | null;
+  inicio: string | null;
+  fin: string | null;
+  fecha: string | null;
+  ubicacion: string | null;
+  equipo_nombre: string | null;
+  es_organizador: boolean;
+  es_participante: boolean;
+  estado_asistencia: EstadoAsistencia;
 };
 
-type EventFormData = {
-  titulo: string;
-  descripcion: string;
-  inicio: string;
-  fin: string;
-  ubicacion: string;
-  tipo: TipoEvento;
-  recordatorio: string;
-  id_equipo: string;
-};
+type FetchError = Error & { info?: { error?: string } };
 
-type ModalEventoProps = {
-  isOpen: boolean;
-  mode: "create" | "edit";
-  initialData?: Evento | null;
-  onClose: () => void;
-  onSubmit: (data: EventFormData) => Promise<void>;
-  loading: boolean;
-  feedback: { type: "success" | "error"; message: string } | null;
-  equipos: Equipo[];
-  loadingEquipos: boolean;
-};
+const fetcher = async (url: string): Promise<EventoUnificado[]> => {
+  const response = await fetch(url);
 
-type EventosState = Evento[] | { eventos: Evento[] };
-
-const esEventosWrapper = (value: unknown): value is { eventos: Evento[] } => {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const possibleWrapper = value as { eventos?: unknown };
-  return Array.isArray(possibleWrapper.eventos);
-};
-
-const esEstadoAsistenciaValido = (
-  value: unknown
-): value is Exclude<EstadoAsistencia, null> =>
-  value === "pendiente" || value === "aceptado" || value === "rechazado";
-
-// Convierte una fecha a un string compatible con <input type="datetime-local" />
-// 🔧 Ajuste: usamos el offset de la fecha como referencia local sin aplicar correcciones extra en cadena.
-const toLocalInputValue = (value: string) => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const timezoneOffset = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - timezoneOffset * 60000);
-  return localDate.toISOString().slice(0, 16);
-};
-
-// Normaliza el valor del input (interpretado en la zona local del navegador) a ISO UTC.
-// 🔧 Corrección principal: eliminamos el ajuste manual del offset para evitar el doble desplazamiento.
-const fromLocalInputValue = (value: string) => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toISOString();
-};
-
-const createEmptyFormData = (): EventFormData => {
-  const formatAsDatetimeLocal = (date: Date) => {
-    const timezoneOffset = date.getTimezoneOffset() * 60000;
-    const localDate = new Date(date.getTime() - timezoneOffset);
-    return localDate.toISOString().slice(0, 16);
-  };
-
-  const now = new Date();
-  const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
-
-  return {
-    titulo: "",
-    descripcion: "",
-    // 🔧 Usamos el mismo formato local consistente para evitar offsets duplicados.
-    inicio: formatAsDatetimeLocal(now),
-    fin: formatAsDatetimeLocal(inOneHour),
-    ubicacion: "",
-    tipo: "personal",
-    recordatorio: "",
-    id_equipo: "",
-  };
-};
-
-const ModalEvento = ({
-  isOpen,
-  mode,
-  initialData,
-  onClose,
-  onSubmit,
-  loading,
-  feedback,
-  equipos,
-  loadingEquipos,
-}: ModalEventoProps) => {
-  const [formData, setFormData] = useState<EventFormData>(createEmptyFormData);
-  const [errors, setErrors] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setErrors(null);
-      setFormData(createEmptyFormData());
-      return;
-    }
-
-    if (mode === "edit" && initialData) {
-      setFormData({
-        titulo: initialData.titulo,
-        descripcion: initialData.descripcion ?? "",
-        inicio: toLocalInputValue(initialData.inicio),
-        fin: toLocalInputValue(initialData.fin),
-        ubicacion: initialData.ubicacion ?? "",
-        tipo: initialData.tipo,
-        recordatorio:
-          initialData.recordatorio !== null && initialData.recordatorio !== undefined
-            ? String(initialData.recordatorio)
-            : "",
-        id_equipo:
-          initialData.tipo === "equipo" && initialData.id_equipo
-            ? String(initialData.id_equipo)
-            : "",
-      });
-      setErrors(null);
-    }
-
-    if (mode === "create") {
-      setFormData(createEmptyFormData());
-      setErrors(null);
-    }
-  }, [initialData, isOpen, mode]);
-
-  const handleChange = (field: keyof EventFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!formData.titulo.trim()) {
-      setErrors("El título es obligatorio.");
-      return;
-    }
-
-    if (!formData.inicio || !formData.fin) {
-      setErrors("Las fechas de inicio y fin son obligatorias.");
-      return;
-    }
-
-    const start = new Date(formData.inicio);
-    const end = new Date(formData.fin);
-
-    if (end <= start) {
-      setErrors("La fecha de fin debe ser posterior a la fecha de inicio.");
-      return;
-    }
-
-    if (formData.tipo === "equipo" && !formData.id_equipo) {
-      setErrors("Selecciona el equipo para el evento.");
-      return;
-    }
-
-    setErrors(null);
-    await onSubmit(formData);
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-xl rounded-lg bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">
-            {mode === "create" ? "➕ Crear nuevo evento" : "✏️ Editar evento"}
-          </h2>
-          <button
-            type="button"
-            className="rounded-md px-3 py-1 text-sm text-gray-500 transition hover:bg-gray-100"
-            onClick={onClose}
-            disabled={loading}
-          >
-            Cerrar
-          </button>
-        </div>
-
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="titulo">
-              Título
-            </label>
-            <input
-              id="titulo"
-              type="text"
-              className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-              value={formData.titulo}
-              onChange={(event) => handleChange("titulo", event.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="descripcion">
-              Descripción
-            </label>
-            <textarea
-              id="descripcion"
-              className="h-24 w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-              value={formData.descripcion}
-              onChange={(event) => handleChange("descripcion", event.target.value)}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="inicio">
-                Inicio
-              </label>
-              <input
-                id="inicio"
-                type="datetime-local"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-                value={formData.inicio}
-                onChange={(event) => handleChange("inicio", event.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="fin">
-                Fin
-              </label>
-              <input
-                id="fin"
-                type="datetime-local"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-                value={formData.fin}
-                onChange={(event) => handleChange("fin", event.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ubicacion">
-                Ubicación (opcional)
-              </label>
-              <input
-                id="ubicacion"
-                type="text"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-                value={formData.ubicacion}
-                onChange={(event) => handleChange("ubicacion", event.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="tipo">
-                Tipo
-              </label>
-              <select
-                id="tipo"
-                className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-                value={formData.tipo}
-                onChange={(event) => handleChange("tipo", event.target.value as TipoEvento)}
-                disabled={mode === "edit" && initialData?.tipo === "equipo"}
-              >
-                <option value="personal">Personal</option>
-                <option value="equipo">Equipo</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-          </div>
-
-          {formData.tipo === "equipo" && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="equipo">
-                Equipo
-              </label>
-              {loadingEquipos ? (
-                <p className="text-sm text-gray-500">Cargando equipos...</p>
-              ) : equipos.length > 0 ? (
-                <select
-                  id="equipo"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-                  value={formData.id_equipo}
-                  onChange={(event) => handleChange("id_equipo", event.target.value)}
-                  disabled={mode === "edit" && initialData?.tipo === "equipo"}
-                >
-                  <option value="">Selecciona un equipo</option>
-                  {equipos.map((equipo) => (
-                    <option key={equipo.id} value={equipo.id}>
-                      {equipo.nombre}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-sm text-amber-600">
-                  No perteneces a ningún equipo aceptado todavía.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="recordatorio">
-              Recordatorio (minutos, opcional)
-            </label>
-            <input
-              id="recordatorio"
-              type="number"
-              min={0}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 focus:border-blue-500 focus:outline-none"
-              value={formData.recordatorio}
-              onChange={(event) => handleChange("recordatorio", event.target.value)}
-            />
-          </div>
-
-          {errors && <p className="text-sm text-red-500">{errors}</p>}
-
-          {feedback && (
-            <p
-              className={`text-sm ${
-                feedback.type === "success" ? "text-green-600" : "text-red-500"
-              }`}
-            >
-              {feedback.message}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              className="rounded-md border border-gray-200 px-4 py-2 text-sm transition hover:bg-gray-100"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
-              disabled={loading}
-            >
-              {loading ? "Guardando..." : mode === "create" ? "Guardar" : "Actualizar"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const ListaEventos = ({
-  eventos,
-  onEdit,
-  onDelete,
-  deleting,
-  onResponder,
-  responding,
-}: {
-  eventos: Evento[];
-  onEdit: (evento: Evento) => void;
-  onDelete: (evento: Evento) => Promise<void>;
-  deleting: number | null;
-  onResponder: (evento: Evento, estado: Exclude<EstadoAsistencia, null>) => Promise<void>;
-  responding: number | null;
-}) => {
-  return (
-    <div className="mt-8 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Título
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Inicio
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Fin
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Tipo
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Equipo
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-              Asistencia
-            </th>
-            <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-              Acciones
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200 bg-white">
-          {eventos.length === 0 ? (
-            <tr>
-              <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={5}>
-                Aún no tienes eventos registrados.
-              </td>
-            </tr>
-          ) : (
-            eventos.map((evento) => {
-              const esEquipo = evento.tipo === "equipo";
-              const esOrganizador = Boolean(evento.es_organizador);
-              const esParticipante = Boolean(evento.es_participante);
-              const estadoAsistencia = evento.estado_asistencia ?? null;
-              const puedeResponder = esEquipo && esParticipante && !esOrganizador;
-              const mostrarRevertir =
-                puedeResponder && estadoAsistencia !== null && estadoAsistencia !== "pendiente";
-
-              return (
-                <tr key={evento.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{evento.titulo}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {new Date(evento.inicio).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {new Date(evento.fin).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-sm capitalize text-gray-600">{evento.tipo}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {esEquipo ? evento.equipo_nombre ?? "—" : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {(() => {
-                      if (!esEquipo) {
-                        return "—";
-                      }
-
-                      if (esOrganizador) {
-                        return "👑 Organizador";
-                      }
-
-                      switch (estadoAsistencia) {
-                        case "aceptado":
-                          return "🟢 Aceptado";
-                        case "rechazado":
-                          return "🔴 Rechazado";
-                        case "pendiente":
-                        default:
-                          return "🟡 Pendiente";
-                      }
-                    })()}
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm text-gray-600">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      {puedeResponder ? (
-                        <>
-                          <button
-                            className="rounded-md border border-green-200 px-3 py-1 text-sm text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-60"
-                            onClick={() => onResponder(evento, "aceptado")}
-                            disabled={responding === evento.id}
-                        >
-                          {responding === evento.id ? "Actualizando..." : "🟢 Aceptar"}
-                        </button>
-                          <button
-                            className="rounded-md border border-red-200 px-3 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                            onClick={() => onResponder(evento, "rechazado")}
-                            disabled={responding === evento.id}
-                          >
-                            {responding === evento.id ? "Actualizando..." : "🔴 Rechazar"}
-                          </button>
-                        {mostrarRevertir && (
-                          <button
-                            className="rounded-md border border-gray-200 px-3 py-1 text-sm text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                            onClick={() => onResponder(evento, "pendiente")}
-                            disabled={responding === evento.id}
-                          >
-                            {responding === evento.id ? "Actualizando..." : "↩️ Pendiente"}
-                          </button>
-                        )}
-                      </>
-                      ) : null}
-
-                      {esOrganizador ? (
-                        <>
-                          <button
-                            className="rounded-md border border-gray-200 px-3 py-1 text-sm transition hover:bg-blue-50"
-                            onClick={() => onEdit(evento)}
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          className="rounded-md border border-red-200 px-3 py-1 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed"
-                          onClick={() => onDelete(evento)}
-                          disabled={deleting === evento.id}
-                        >
-                          {deleting === evento.id ? "Eliminando..." : "🗑️ Eliminar"}
-                        </button>
-                        </>
-                      ) : null}
-
-                      {!esOrganizador && !puedeResponder ? (
-                        <span className="px-3 py-1 text-sm text-gray-400">—</span>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
-export default function Page() {
-  const [eventos, setEventos] = useState<EventosState>(() => []);
-  const [loadingEventos, setLoadingEventos] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-  const [eventoSeleccionado, setEventoSeleccionado] = useState<Evento | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
-    null,
-  );
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [equipos, setEquipos] = useState<Equipo[]>([]);
-  const [loadingEquipos, setLoadingEquipos] = useState(false);
-  const [respondingId, setRespondingId] = useState<number | null>(null);
-  const [respuestaMensaje, setRespuestaMensaje] = useState<
-    { type: "success" | "error"; message: string } | null
-  >(null);
-
-  useEffect(() => {
-    if (!respuestaMensaje) {
-      return;
-    }
-
-    const timeout = setTimeout(() => setRespuestaMensaje(null), 5000);
-    return () => clearTimeout(timeout);
-  }, [respuestaMensaje]);
-
-  const fetchEquipos = useCallback(async () => {
+  if (!response.ok) {
+    let info: { error?: string } | undefined;
     try {
-      setLoadingEquipos(true);
-      const response = await fetch("/api/equipos", {
-        credentials: "include",
-      });
+      info = await response.json();
+    } catch (error) {
+      info = undefined;
+    }
+    const error = new Error(info?.error ?? "No se pudo cargar el calendario") as FetchError;
+    error.info = info;
+    throw error;
+  }
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          setEquipos([]);
-          return;
+  const data = await response.json();
+
+  if (Array.isArray(data)) {
+    return data as EventoUnificado[];
+  }
+
+  if (data && Array.isArray(data.eventos)) {
+    return data.eventos as EventoUnificado[];
+  }
+
+  return [];
+};
+
+const obtenerColorPorTipo = (tipo: TipoEventoUnificado) => {
+  switch (tipo) {
+    case "tarea":
+      return "#22c55e"; // green-500
+    case "tarea_grupal":
+      return "#a855f7"; // purple-500
+    default:
+      return "#2563eb"; // blue-600
+  }
+};
+
+const obtenerFechaBase = (item: EventoUnificado): Date | null => {
+  if (item.tipo === "evento") {
+    if (item.inicio) {
+      return new Date(item.inicio);
+    }
+
+    if (item.fin) {
+      return new Date(item.fin);
+    }
+
+    return null;
+  }
+
+  if (!item.fecha) {
+    return null;
+  }
+
+  return new Date(`${item.fecha}T00:00:00`);
+};
+
+const formatearDescripcionCorta = (value: string | null) => {
+  if (!value) return null;
+  if (value.length <= 120) return value;
+  return `${value.slice(0, 117)}...`;
+};
+
+const formatearRangoHorario = (inicio: string | null, fin: string | null) => {
+  if (!inicio) return null;
+
+  const inicioDate = new Date(inicio);
+  const finDate = fin ? new Date(fin) : null;
+  const fechaFormatter = new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" });
+  const horaFormatter = new Intl.DateTimeFormat("es-MX", { timeStyle: "short" });
+  const fechaTexto = fechaFormatter.format(inicioDate);
+  const horaInicio = horaFormatter.format(inicioDate);
+  const horaFin = finDate ? horaFormatter.format(finDate) : null;
+
+  return horaFin ? `${fechaTexto} · ${horaInicio} - ${horaFin}` : `${fechaTexto} · ${horaInicio}`;
+};
+
+const formatearFechaSimple = (fecha: string | null) => {
+  if (!fecha) return "Sin fecha";
+  const fechaDate = new Date(`${fecha}T00:00:00`);
+  return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" }).format(fechaDate);
+};
+
+const legendItems = [
+  { label: "Eventos", color: "bg-blue-500" },
+  { label: "Tareas personales", color: "bg-green-500" },
+  { label: "Tareas grupales", color: "bg-purple-500" },
+];
+
+const CalendarioUnificadoPage = () => {
+  const [mensaje, setMensaje] = useState<{ tipo: "success" | "error"; texto: string } | null>(null);
+  const [respuestaPendiente, setRespuestaPendiente] = useState<string | null>(null);
+
+  const { data, error, isLoading, mutate } = useSWR<EventoUnificado[]>(
+    "/api/events",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+    }
+  );
+
+  const eventos = useMemo(() => data ?? [], [data]);
+
+  const eventosCalendario = useMemo<EventInput[]>(() => {
+    return eventos
+      .map((item) => {
+        const start = item.tipo === "evento" ? item.inicio : item.fecha;
+
+        if (!start) {
+          return null;
         }
 
-        throw new Error("No se pudo obtener la lista de equipos");
-      }
+        const baseColor = obtenerColorPorTipo(item.tipo);
 
-      const data: unknown = await response.json();
-      const posiblesEquipos: unknown[] = Array.isArray(data)
-        ? data
-        : data && typeof data === "object" && Array.isArray((data as { equipos?: unknown[] }).equipos)
-        ? ((data as { equipos?: unknown[] }).equipos as unknown[])
-        : [];
+        return {
+          id: item.id,
+          title: item.tipo === "tarea_grupal" ? `👥 ${item.titulo}` : item.titulo,
+          start,
+          end: item.tipo === "evento" ? item.fin ?? undefined : undefined,
+          allDay: item.tipo !== "evento",
+          backgroundColor: baseColor,
+          borderColor: baseColor,
+          textColor: "#ffffff",
+          extendedProps: item,
+        } satisfies EventInput;
+      })
+      .filter((item): item is EventInput => item !== null);
+  }, [eventos]);
 
-      const normalizados = posiblesEquipos
-        .map((item) => {
-          if (!item || typeof item !== "object") {
-            return null;
-          }
+  const proximosEventos = useMemo(() => {
+    const ahora = new Date();
 
-          const registro = item as Record<string, unknown>;
-          const idValor = registro.id;
-          const nombreValor = registro.nombre;
-
-          const id =
-            typeof idValor === "number"
-              ? idValor
-              : typeof idValor === "string"
-              ? Number.parseInt(idValor, 10)
-              : NaN;
-
-          if (!Number.isInteger(id)) {
-            return null;
-          }
-
-          if (typeof nombreValor !== "string" || nombreValor.trim().length === 0) {
-            return null;
-          }
-
-          return {
-            id,
-            nombre: nombreValor,
-          } satisfies Equipo;
-        })
-        .filter((equipo): equipo is Equipo => Boolean(equipo));
-
-      setEquipos(normalizados);
-    } catch (error) {
-      console.error(error);
-      setEquipos([]);
-    } finally {
-      setLoadingEquipos(false);
-    }
-  }, []);
-
-  const fetchEventos = useCallback(async () => {
-    try {
-      setLoadingEventos(true);
-      const response = await fetch("/api/events", {
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error("No se pudo obtener la lista de eventos");
-      }
-
-      const data: unknown = await response.json();
-      const listaBruta: unknown[] = Array.isArray(data)
-        ? data
-        : esEventosWrapper(data)
-        ? data.eventos
-        : [];
-
-      const normalizados = listaBruta
-        .map((item) => {
-          if (!item || typeof item !== "object") {
-            return null;
-          }
-
-          const registro = item as Record<string, unknown>;
-          const idValor = registro.id;
-          const inicioValor = registro.inicio;
-          const finValor = registro.fin;
-
-          const id =
-            typeof idValor === "number"
-              ? idValor
-              : typeof idValor === "string"
-              ? Number.parseInt(idValor, 10)
-              : NaN;
-
-          if (!Number.isInteger(id)) {
-            return null;
-          }
-
-          if (typeof inicioValor !== "string" || typeof finValor !== "string") {
-            return null;
-          }
-
-          const tituloValor = registro.titulo;
-          const tipoValor = registro.tipo;
-
-          const tipoEvento: TipoEvento =
-            tipoValor === "personal" || tipoValor === "equipo" || tipoValor === "otro"
-              ? tipoValor
-              : "personal";
-
-          const descripcionValor =
-            typeof registro.descripcion === "string" ? registro.descripcion : null;
-          const ubicacionValor =
-            typeof registro.ubicacion === "string" ? registro.ubicacion : null;
-
-          const recordatorioValor = (() => {
-            if (typeof registro.recordatorio === "number") {
-              return registro.recordatorio;
+    return eventos
+      .map((item) => {
+        const fechaBase = obtenerFechaBase(item);
+        return fechaBase
+          ? {
+              item,
+              fechaBase,
             }
-
-            if (
-              typeof registro.recordatorio === "string" &&
-              !Number.isNaN(Number.parseInt(registro.recordatorio, 10))
-            ) {
-              return Number.parseInt(registro.recordatorio, 10);
-            }
-
-            return null;
-          })();
-
-          const idEquipoValor = registro.id_equipo;
-          const idEquipo =
-            typeof idEquipoValor === "number"
-              ? idEquipoValor
-              : typeof idEquipoValor === "string"
-              ? Number.parseInt(idEquipoValor, 10)
-              : null;
-
-          const equipoNombre =
-            typeof registro.equipo_nombre === "string" ? registro.equipo_nombre : null;
-
-          const estadoAsistencia = esEstadoAsistenciaValido(registro.estado_asistencia)
-            ? registro.estado_asistencia
-            : null;
-
-          const esOrganizador =
-            registro.es_organizador === 1 || registro.es_organizador === true;
-          const esParticipante =
-            registro.es_participante === 1 || registro.es_participante === true;
-
-          return {
-            id,
-            titulo:
-              typeof tituloValor === "string"
-                ? tituloValor
-                : tituloValor != null
-                ? String(tituloValor)
-                : "(Sin título)",
-            descripcion: descripcionValor,
-            inicio: inicioValor,
-            fin: finValor,
-            ubicacion: ubicacionValor,
-            tipo: tipoEvento,
-            recordatorio: recordatorioValor,
-            id_equipo: idEquipo,
-            equipo_nombre: equipoNombre,
-            estado_asistencia: estadoAsistencia,
-            es_organizador: esOrganizador,
-            es_participante: esParticipante,
-          } satisfies Evento;
-        })
-        .filter((evento): evento is Evento => Boolean(evento));
-
-      if (Array.isArray(data)) {
-        setEventos(normalizados);
-      } else if (esEventosWrapper(data)) {
-        setEventos({ eventos: normalizados });
-      } else {
-        setEventos(normalizados);
-      }
-    } catch (error) {
-      console.error(error);
-      setEventos([]);
-    } finally {
-      setLoadingEventos(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchEquipos();
-  }, [fetchEquipos]);
-
-  useEffect(() => {
-    fetchEventos();
-  }, [fetchEventos]);
-
-  const handleOpenCreate = () => {
-    fetchEquipos();
-    setModalMode("create");
-    setEventoSeleccionado(null);
-    setFeedback(null);
-    setModalOpen(true);
-  };
-
-  const handleOpenEdit = (evento: Evento) => {
-    setModalMode("edit");
-    setEventoSeleccionado(evento);
-    setFeedback(null);
-    setModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setEventoSeleccionado(null);
-    setFeedback(null);
-  };
-
-  const handleSubmitModal = async (data: EventFormData) => {
-    setSaving(true);
-    setFeedback(null);
-
-    try {
-      const equipoId =
-        data.tipo === "equipo" && data.id_equipo
-          ? Number.parseInt(data.id_equipo, 10)
           : null;
+      })
+      .filter((registro): registro is { item: EventoUnificado; fechaBase: Date } =>
+        Boolean(registro && registro.fechaBase)
+      )
+      .filter((registro) => registro.fechaBase.getTime() >= ahora.getTime() - 24 * 60 * 60 * 1000)
+      .sort((a, b) => a.fechaBase.getTime() - b.fechaBase.getTime())
+      .slice(0, 5);
+  }, [eventos]);
 
-      const payload = {
-        titulo: data.titulo.trim(),
-        descripcion: data.descripcion.trim() || null,
-        inicio: fromLocalInputValue(data.inicio),
-        fin: fromLocalInputValue(data.fin),
-        ubicacion: data.ubicacion.trim() || null,
-        tipo: data.tipo,
-        recordatorio: data.recordatorio ? Number(data.recordatorio) : null,
-        id_equipo: Number.isInteger(equipoId) ? equipoId : null,
-      };
-
-      let response: Response;
-
-      if (modalMode === "create") {
-        response = await fetch("/api/events", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-      } else if (eventoSeleccionado) {
-        // Validamos que el identificador exista antes de enviar la petición PUT
-        if (
-          typeof eventoSeleccionado.id !== "number" ||
-          Number.isNaN(eventoSeleccionado.id)
-        ) {
-          throw new Error("Identificador de evento inválido.");
-        }
-
-        response = await fetch(`/api/events/${eventoSeleccionado.id}`, {
-          method: "PUT",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        throw new Error("No hay evento seleccionado para editar");
+  const manejarRespuesta = useCallback(
+    async (item: EventoUnificado, estado: Exclude<EstadoAsistencia, null>) => {
+      if (item.source !== "evento_interno") {
+        return;
       }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Ocurrió un error al guardar el evento");
-      }
-
-      setFeedback({ type: "success", message: "Evento guardado correctamente." });
-      await fetchEventos();
-      setTimeout(() => {
-        setModalOpen(false);
-        setEventoSeleccionado(null);
-        setFeedback(null);
-      }, 600);
-    } catch (error) {
-      console.error(error);
-      setFeedback({
-        type: "error",
-        message: error instanceof Error ? error.message : "Ocurrió un error inesperado.",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleResponderEvento = async (
-    evento: Evento,
-    estado: Exclude<EstadoAsistencia, null>
-  ) => {
-    if (!Number.isInteger(evento.id)) {
-      setRespuestaMensaje({
-        type: "error",
-        message: "No se pudo identificar el evento seleccionado.",
-      });
-      return;
-    }
-
-    setRespondingId(evento.id);
-    setRespuestaMensaje(null);
-
-    try {
-      const response = await fetch(`/api/events/${evento.id}/respuesta`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ estado }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "No se pudo actualizar la asistencia.");
-      }
-
-      let message = "Estado de asistencia actualizado.";
-      if (estado === "aceptado") {
-        message = "Has confirmado tu asistencia.";
-      } else if (estado === "rechazado") {
-        message = "Has rechazado la invitación.";
-      } else if (estado === "pendiente") {
-        message = "Has marcado la asistencia como pendiente.";
-      }
-
-      setRespuestaMensaje({ type: "success", message });
-      await fetchEventos();
-    } catch (error) {
-      console.error(error);
-      setRespuestaMensaje({
-        type: "error",
-        message:
-          error instanceof Error ? error.message : "No se pudo actualizar la asistencia.",
-      });
-    } finally {
-      setRespondingId(null);
-    }
-  };
-
-  const handleDelete = useCallback(
-    async (evento: Evento) => {
-      const confirmado = window.confirm(
-        `¿Seguro que deseas eliminar el evento "${evento.titulo}"? Esta acción no se puede deshacer.`,
-      );
-
-      if (!confirmado) return;
-
-      setDeletingId(evento.id);
       try {
-        const response = await fetch(`/api/events/${evento.id}`, {
-          method: "DELETE",
-          credentials: "include",
+        setRespuestaPendiente(`${item.id}-${estado}`);
+        setMensaje(null);
+
+        const response = await fetch(`/api/events/${item.sourceId}/respuesta`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ estado }),
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || "No se pudo eliminar el evento");
+          const info = await response.json().catch(() => ({ error: "No se pudo actualizar la respuesta" }));
+          throw new Error(info?.error ?? "No se pudo actualizar la respuesta");
         }
 
-        await fetchEventos();
+        setMensaje({ tipo: "success", texto: "Respuesta registrada correctamente" });
+        await mutate();
       } catch (error) {
-        console.error(error);
-        setFeedback({
-          type: "error",
-          message: error instanceof Error ? error.message : "No se pudo eliminar el evento.",
-        });
+        console.error("[Calendario] manejarRespuesta", error);
+        setMensaje({ tipo: "error", texto: error instanceof Error ? error.message : "Ocurrió un error inesperado" });
       } finally {
-        setDeletingId(null);
+        setRespuestaPendiente(null);
       }
     },
-    [fetchEventos],
+    [mutate]
   );
-
-  const listaEventos = useMemo(() => {
-    const lista = Array.isArray(eventos)
-      ? eventos
-      : esEventosWrapper(eventos)
-      ? eventos.eventos
-      : [];
-
-    return lista;
-  }, [eventos]);
-
-  const eventosCalendario = useMemo(() => {
-    const lista = Array.isArray(eventos)
-      ? eventos
-      : esEventosWrapper(eventos)
-      ? eventos.eventos
-      : [];
-
-    return lista.map((evento) => ({
-      id: String(evento.id),
-      title: evento.titulo ?? "(Sin título)",
-      start: evento.inicio,
-      end: evento.fin,
-      extendedProps: {
-        descripcion: evento.descripcion ?? null,
-        ubicacion: evento.ubicacion ?? null,
-        tipo: evento.tipo,
-        recordatorio: evento.recordatorio ?? null,
-        id_equipo: evento.id_equipo ?? null,
-        equipo_nombre: evento.equipo_nombre ?? null,
-        estado_asistencia: evento.estado_asistencia ?? null,
-        es_organizador: evento.es_organizador ?? false,
-        es_participante: evento.es_participante ?? false,
-      },
-    }));
-  }, [eventos]);
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="rounded-lg bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">📅 Gestión de Eventos</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Visualiza y administra tus eventos personales y de equipo.
+    <div className="flex flex-1 flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold text-gray-900">Calendario unificado de eventos y tareas</h1>
+        <p className="text-gray-600">
+          Consulta de un vistazo tus eventos, tareas personales y tareas grupales en un mismo calendario.
+        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          {legendItems.map((legend) => (
+            <div key={legend.label} className="flex items-center gap-2 text-sm text-gray-600">
+              <span className={`inline-flex h-3 w-3 rounded-full ${legend.color}`} aria-hidden="true" />
+              {legend.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {mensaje && (
+        <div
+          className={`rounded-lg border px-4 py-2 text-sm ${
+            mensaje.tipo === "success"
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {mensaje.texto}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error instanceof Error ? error.message : "No se pudo cargar el calendario"}
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
+            <h2 className="text-lg font-semibold text-gray-900">Tu calendario</h2>
+            <p className="text-sm text-gray-500">Navega entre meses y crea hábitos alrededor de tus compromisos.</p>
+          </div>
+          <div className="p-4">
+            {isLoading && eventosCalendario.length === 0 ? (
+              <div className="flex min-h-[480px] items-center justify-center text-sm text-gray-500">
+                Cargando calendario...
+              </div>
+            ) : (
+              <FullCalendar
+                plugins={[dayGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                height="auto"
+                events={eventosCalendario}
+                eventDisplay="block"
+                displayEventEnd
+                locale="es"
+                eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
+              />
+            )}
+          </div>
+        </div>
+
+        <aside className="flex h-full flex-col gap-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Próximos compromisos</h3>
+              <p className="text-sm text-gray-500">Los siguientes eventos y tareas en tu agenda.</p>
+            </div>
+            <div className="flex flex-col gap-4 px-5 py-4">
+              {proximosEventos.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay eventos o tareas próximos.</p>
+              ) : (
+                proximosEventos.map(({ item }) => {
+                  const color = obtenerColorPorTipo(item.tipo);
+                  const descripcionCorta = formatearDescripcionCorta(item.descripcion);
+                  const fechaTexto =
+                    item.tipo === "evento"
+                      ? formatearRangoHorario(item.inicio, item.fin)
+                      : formatearFechaSimple(item.fecha);
+
+                  const puedeResponder =
+                    item.source === "evento_interno" &&
+                    item.es_participante &&
+                    !item.es_organizador &&
+                    item.estado_asistencia === "pendiente";
+
+                  return (
+                    <div key={item.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                            <span className="text-xs font-medium uppercase text-gray-500">
+                              {item.tipo === "evento"
+                                ? "Evento"
+                                : item.tipo === "tarea_grupal"
+                                ? "Tarea grupal"
+                                : "Tarea"}
+                            </span>
+                          </div>
+                          <p className="text-base font-semibold text-gray-900">
+                            {item.tipo === "tarea_grupal" ? `👥 ${item.titulo}` : item.titulo}
+                          </p>
+                          <p className="text-sm text-gray-600">{fechaTexto}</p>
+                          {item.tipo === "evento" && item.equipo_nombre && (
+                            <p className="text-xs text-gray-500">Equipo: {item.equipo_nombre}</p>
+                          )}
+                          {descripcionCorta && (
+                            <p className="text-xs text-gray-500">{descripcionCorta}</p>
+                          )}
+                        </div>
+                      </div>
+                      {puedeResponder && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+                            onClick={() => manejarRespuesta(item, "aceptado")}
+                            disabled={respuestaPendiente !== null}
+                          >
+                            Aceptar
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => manejarRespuesta(item, "rechazado")}
+                            disabled={respuestaPendiente !== null}
+                          >
+                            Rechazar
+                          </button>
+                        </div>
+                      )}
+                      {item.tipo === "evento" && item.estado_asistencia && item.estado_asistencia !== "pendiente" && (
+                        <p className="mt-3 text-xs font-medium text-gray-500">
+                          Tu estado: {item.estado_asistencia === "aceptado" ? "✅ Aceptado" : "❌ Rechazado"}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-sm text-gray-600">
+            <p className="font-semibold text-gray-800">Consejo</p>
+            <p className="mt-1">
+              Arrastra eventos directamente en el calendario para reorganizar tu semana una vez que esta funcionalidad esté disponible.
             </p>
           </div>
-          <button
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            ➕ Nuevo evento
-          </button>
-        </div>
-
-        <div className="mt-6 overflow-hidden rounded-lg border border-gray-200">
-          <FullCalendar
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            events={eventosCalendario}
-            eventClick={(info) => {
-              const id = Number.parseInt(info.event.id, 10);
-
-              if (Number.isNaN(id)) {
-                setFeedback({
-                  type: "error",
-                  message: "No pudimos identificar el evento seleccionado.",
-                });
-                return;
-              }
-
-              const eventoExistente = listaEventos.find((item) => item.id === id);
-              if (eventoExistente) {
-                handleOpenEdit(eventoExistente);
-                return;
-              }
-              const tipoDesdeCalendario = info.event.extendedProps.tipo;
-              const tipoNormalizado: TipoEvento =
-                tipoDesdeCalendario === "personal" ||
-                tipoDesdeCalendario === "equipo" ||
-                tipoDesdeCalendario === "otro"
-                  ? tipoDesdeCalendario
-                  : "personal";
-
-              const idEquipoDesdeCalendarioRaw = info.event.extendedProps.id_equipo;
-              const idEquipoDesdeCalendario =
-                typeof idEquipoDesdeCalendarioRaw === "number"
-                  ? idEquipoDesdeCalendarioRaw
-                  : typeof idEquipoDesdeCalendarioRaw === "string"
-                  ? Number.parseInt(idEquipoDesdeCalendarioRaw, 10)
-                  : null;
-
-              const equipoNombreDesdeCalendario =
-                typeof info.event.extendedProps.equipo_nombre === "string"
-                  ? info.event.extendedProps.equipo_nombre
-                  : null;
-
-              const estadoAsistenciaDesdeCalendario = esEstadoAsistenciaValido(
-                info.event.extendedProps.estado_asistencia,
-              )
-                ? info.event.extendedProps.estado_asistencia
-                : null;
-
-              const esOrganizadorCalendario =
-                info.event.extendedProps.es_organizador === true ||
-                info.event.extendedProps.es_organizador === 1;
-              const esParticipanteCalendario =
-                info.event.extendedProps.es_participante === true ||
-                info.event.extendedProps.es_participante === 1;
-
-              const eventoSeleccionadoCalendario: Evento = {
-                id,
-                titulo: typeof info.event.title === "string" ? info.event.title : "(Sin título)",
-                descripcion:
-                  typeof info.event.extendedProps.descripcion === "string"
-                    ? info.event.extendedProps.descripcion
-                    : null,
-                inicio: info.event.startStr,
-                fin:
-                  info.event.endStr ??
-                  info.event.start?.toISOString() ??
-                  info.event.startStr,
-                ubicacion:
-                  typeof info.event.extendedProps.ubicacion === "string"
-                    ? info.event.extendedProps.ubicacion
-                    : null,
-                tipo: tipoNormalizado,
-                recordatorio:
-                  typeof info.event.extendedProps.recordatorio === "number"
-                    ? info.event.extendedProps.recordatorio
-                    : typeof info.event.extendedProps.recordatorio === "string" &&
-                      !Number.isNaN(
-                        Number.parseInt(info.event.extendedProps.recordatorio, 10),
-                      )
-                    ? Number.parseInt(info.event.extendedProps.recordatorio, 10)
-                    : null,
-                id_equipo: Number.isInteger(idEquipoDesdeCalendario)
-                  ? Number(idEquipoDesdeCalendario)
-                  : null,
-                equipo_nombre: equipoNombreDesdeCalendario,
-                estado_asistencia: estadoAsistenciaDesdeCalendario,
-                es_organizador: esOrganizadorCalendario,
-                es_participante: esParticipanteCalendario,
-              };
-
-              // Abrimos el modal con los datos provenientes directamente del calendario
-              handleOpenEdit(eventoSeleccionadoCalendario);
-            }}
-            height={650}
-            locale="es"
-          />
-        </div>
+        </aside>
       </div>
-
-      <div className="rounded-lg bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Lista de eventos</h2>
-          {loadingEventos && <span className="text-sm text-gray-500">Cargando...</span>}
-        </div>
-        {respuestaMensaje && (
-          <p
-            className={`mt-3 text-sm ${
-              respuestaMensaje.type === "success" ? "text-green-600" : "text-red-500"
-            }`}
-          >
-            {respuestaMensaje.message}
-          </p>
-        )}
-        <ListaEventos
-          eventos={listaEventos}
-          onEdit={handleOpenEdit}
-          onDelete={handleDelete}
-          deleting={deletingId}
-          onResponder={handleResponderEvento}
-          responding={respondingId}
-        />
-      </div>
-
-      <ModalEvento
-        isOpen={modalOpen}
-        mode={modalMode}
-        initialData={eventoSeleccionado}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmitModal}
-        loading={saving}
-        feedback={feedback}
-        equipos={equipos}
-        loadingEquipos={loadingEquipos}
-      />
     </div>
   );
-}
+};
 
+export default CalendarioUnificadoPage;

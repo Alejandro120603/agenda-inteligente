@@ -8,9 +8,7 @@ const navigation = [
   { name: "Inicio", href: "/inicio", icon: "🏠" },
   { name: "Equipos", href: "/equipos", icon: "👥" },
   { name: "Eventos", href: "/eventos", icon: "📅" },
-  { name: "Tareas", href: "/tareas", icon: "✅" },
   { name: "Configuración", href: "/configuracion", icon: "⚙️" },
-  { name: "Soporte", href: "/soporte", icon: "💬" },
 ];
 
 export default function Sidebar() {
