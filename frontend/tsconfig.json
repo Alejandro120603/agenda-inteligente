@@ -15,7 +15,9 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "swr": ["./lib/swr"],
+      "swr/*": ["./lib/swr"]
     },
     "resolveJsonModule": true,
     "isolatedModules": true,
