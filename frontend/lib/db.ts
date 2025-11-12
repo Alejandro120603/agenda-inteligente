@@ -70,6 +70,34 @@ function initializeTeamSchema(database: SqliteDatabase) {
         }
       }
     );
+
+    database.run(
+      "ALTER TABLE eventos_internos ADD COLUMN id_equipo INTEGER REFERENCES equipos(id) ON DELETE SET NULL",
+      (error) => {
+        if (error && !String(error.message).includes("duplicate column name")) {
+          console.error("[DB] Error agregando columna id_equipo en eventos_internos", error);
+        }
+      }
+    );
+
+    database.run(
+      `CREATE TABLE IF NOT EXISTS participantes_evento_interno (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_evento INTEGER NOT NULL,
+        id_usuario INTEGER NOT NULL,
+        estado_asistencia TEXT CHECK(estado_asistencia IN ('pendiente','aceptado','rechazado')) DEFAULT 'pendiente',
+        invitado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        respondido_en DATETIME,
+        FOREIGN KEY (id_evento) REFERENCES eventos_internos(id) ON DELETE CASCADE,
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
+        UNIQUE (id_evento, id_usuario)
+      )`,
+      (error) => {
+        if (error) {
+          console.error("[DB] Error creando la tabla participantes_evento_interno", error);
+        }
+      }
+    );
   });
 }
 
