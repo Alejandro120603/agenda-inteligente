@@ -98,6 +98,25 @@ function initializeTeamSchema(database: SqliteDatabase) {
         }
       }
     );
+
+    database.run(
+      `CREATE TABLE IF NOT EXISTS tareas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_usuario INTEGER NOT NULL,
+        titulo TEXT NOT NULL,
+        descripcion TEXT,
+        fecha_limite DATETIME,
+        estado TEXT CHECK(estado IN ('pendiente', 'en_progreso', 'completada')) DEFAULT 'pendiente',
+        prioridad TEXT CHECK(prioridad IN ('baja', 'media', 'alta')) DEFAULT 'media',
+        creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
+      )`,
+      (error) => {
+        if (error) {
+          console.error("[DB] Error creando la tabla tareas", error);
+        }
+      }
+    );
   });
 }
 

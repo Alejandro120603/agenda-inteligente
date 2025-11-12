@@ -1,24 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { allQuery, getQuery, runQuery } from "@/lib/db";
-
-interface EventoInternoRow {
-  id: number;
-  id_usuario: number;
-  id_equipo: number | null;
-  titulo: string;
-  descripcion: string | null;
-  inicio: string;
-  fin: string;
-  ubicacion: string | null;
-  tipo: "personal" | "equipo" | "otro";
-  recordatorio: number;
-  creado_en: string;
-  equipo_nombre: string | null;
-  es_organizador: 0 | 1;
-  es_participante: 0 | 1;
-  estado_asistencia: "pendiente" | "aceptado" | "rechazado" | null;
-}
+import { getEventsForUser } from "@/lib/events";
 
 async function obtenerUsuarioAutenticado(): Promise<number | null> {
   const cookieStore = await cookies();
@@ -36,7 +19,7 @@ async function obtenerUsuarioAutenticado(): Promise<number | null> {
   return userId;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const userId = await obtenerUsuarioAutenticado();
 
@@ -44,31 +27,25 @@ export async function GET() {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const eventos = await allQuery<EventoInternoRow>(
-      `SELECT
-        e.id,
-        e.id_usuario,
-        e.id_equipo,
-        e.titulo,
-        e.descripcion,
-        e.inicio,
-        e.fin,
-        e.ubicacion,
-        e.tipo,
-        e.recordatorio,
-        e.creado_en,
-        eq.nombre AS equipo_nombre,
-        CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador,
-        CASE WHEN pei.id IS NULL THEN 0 ELSE 1 END AS es_participante,
-        pei.estado_asistencia
-      FROM eventos_internos e
-      LEFT JOIN participantes_evento_interno pei
-        ON pei.id_evento = e.id AND pei.id_usuario = ?
-      LEFT JOIN equipos eq ON eq.id = e.id_equipo
-      WHERE e.id_usuario = ? OR pei.id IS NOT NULL
-      ORDER BY datetime(e.inicio) ASC`,
-      [userId, userId, userId]
-    );
+    const dateParam = request.nextUrl.searchParams.get("date");
+    let dateFilter: string | undefined;
+
+    if (dateParam) {
+      const normalized = dateParam.trim();
+      const isIsoDate = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
+      if (!isIsoDate) {
+        return NextResponse.json(
+          { error: "Formato de fecha inválido. Usa YYYY-MM-DD." },
+          { status: 400 }
+        );
+      }
+
+      dateFilter = normalized;
+    }
+
+    const eventos = await getEventsForUser(userId, {
+      date: dateFilter,
+    });
 
     return NextResponse.json({ eventos });
   } catch (error) {

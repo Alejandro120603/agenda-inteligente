@@ -58,6 +58,10 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 días
     });
 
+    // Indicamos al navegador que borre cualquier almacenamiento previo del dominio
+    // (por ejemplo, restos de la versión anterior que usaba localStorage).
+    response.headers.set("Clear-Site-Data", '"storage"');
+
     return response;
   } catch (error) {
     console.error("Error en el inicio de sesión:", error);
