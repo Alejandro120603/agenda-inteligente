@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserFromSession } from "@/lib/auth";
 import { allQuery, getQuery } from "@/lib/db";
 
-type TipoTareaNormalizada = "tarea" | "tarea_grupal";
+type TipoTareaNormalizada = "tarea_personal" | "tarea_grupal";
 
 type TareaDinamicaRow = {
   id: number;
@@ -65,11 +65,11 @@ function inferirTipoTarea(tarea: TareaDinamicaRow): TipoTareaNormalizada {
   const { es_grupal, tipo_registro, id_equipo } = tarea;
 
   if (typeof es_grupal === "number") {
-    return es_grupal !== 0 ? "tarea_grupal" : "tarea";
+    return es_grupal !== 0 ? "tarea_grupal" : "tarea_personal";
   }
 
   if (typeof es_grupal === "boolean") {
-    return es_grupal ? "tarea_grupal" : "tarea";
+    return es_grupal ? "tarea_grupal" : "tarea_personal";
   }
 
   if (typeof tipo_registro === "string") {
@@ -83,7 +83,7 @@ function inferirTipoTarea(tarea: TareaDinamicaRow): TipoTareaNormalizada {
     return "tarea_grupal";
   }
 
-  return "tarea";
+  return "tarea_personal";
 }
 
 function normalizarBandera(valor: unknown): boolean {

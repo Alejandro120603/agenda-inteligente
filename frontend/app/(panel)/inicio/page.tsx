@@ -39,7 +39,7 @@ type DashboardTarea = {
   titulo: string;
   descripcion: string | null;
   fecha: string | null;
-  tipo: "tarea" | "tarea_grupal";
+  tipo: "tarea_personal" | "tarea_grupal";
   equipoNombre: string | null;
 };
 
@@ -66,7 +66,7 @@ type Notificacion = {
 type ItemHoy = {
   id: string;
   titulo: string;
-  tipo: "evento" | "tarea" | "tarea_grupal";
+  tipo: "evento" | "tarea_personal" | "tarea_grupal";
   inicio: string | null;
   fin: string | null;
   fecha: string | null;

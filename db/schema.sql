@@ -151,3 +151,24 @@ CREATE TABLE IF NOT EXISTS participantes_evento_interno (
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
     UNIQUE (id_evento, id_usuario)
 );
+
+-- ============================================================
+-- 8. Tabla: tareas internas
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tareas (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_usuario   INTEGER NOT NULL,
+    id_equipo    INTEGER,
+    titulo       VARCHAR(255) NOT NULL,
+    descripcion  TEXT,
+    fecha        DATE NOT NULL,
+    es_grupal    INTEGER NOT NULL DEFAULT 0,
+    tipo         TEXT CHECK(tipo IN ('tarea_personal','tarea_grupal')) DEFAULT 'tarea_personal',
+    completada   INTEGER NOT NULL DEFAULT 0,
+    creado_en    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_equipo) REFERENCES equipos(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tareas_usuario ON tareas(id_usuario);
+CREATE INDEX IF NOT EXISTS idx_tareas_equipo ON tareas(id_equipo);
