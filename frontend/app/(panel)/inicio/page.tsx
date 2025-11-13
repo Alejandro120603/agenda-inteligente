@@ -369,81 +369,6 @@ export default function InicioPage() {
     }
   }, []);
 
-  const cargarNotificaciones = useCallback(async () => {
-    try {
-      setCargandoNotificaciones(true);
-      setErrorNotificaciones(null);
-
-      const respuesta = await fetch("/api/notificaciones", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!respuesta.ok) {
-        if (respuesta.status === 401) {
-          setNotificaciones([]);
-          setErrorNotificaciones("Inicia sesión para ver tus notificaciones.");
-          return;
-        }
-
-        throw new Error(`Error ${respuesta.status}`);
-      }
-
-      const data: unknown = await respuesta.json();
-      if (
-        !data ||
-        typeof data !== "object" ||
-        !Array.isArray((data as { notificaciones?: unknown }).notificaciones)
-      ) {
-        throw new Error("Respuesta inesperada del servidor");
-      }
-
-      setNotificaciones((data as { notificaciones: Notificacion[] }).notificaciones);
-    } catch (error) {
-      console.error("[Notificaciones] Error al cargar", error);
-      setNotificaciones([]);
-      setErrorNotificaciones("No pudimos cargar la actividad reciente.");
-    } finally {
-      setCargandoNotificaciones(false);
-    }
-  }, []);
-
-  const manejarAccionInvitacion = useCallback(
-    async (objetivo: ObjetivoInvitacion, accion: "aceptar" | "rechazar") => {
-      try {
-        setAccionInvitacion(objetivo);
-        setErrorNotificaciones(null);
-
-        let respuesta: Response;
-        if (objetivo.tipo === "equipo") {
-          respuesta = await fetch(`/api/invitaciones/${objetivo.id}/${accion}`, {
-            method: "PATCH",
-            credentials: "include",
-          });
-        } else {
-          const estado = accion === "aceptar" ? "aceptado" : "rechazado";
-          const url = `/api/events/${objetivo.id}/respuesta?estado=${estado}`;
-          respuesta = await fetch(url, {
-            method: "POST",
-            credentials: "include",
-          });
-        }
-
-        if (!respuesta.ok) {
-          throw new Error(`Error ${respuesta.status}`);
-        }
-
-        await Promise.all([cargarNotificaciones(), cargarDashboard(), cargarEventos()]);
-      } catch (error) {
-        console.error("[Invitaciones] Error al actualizar", error);
-        setErrorNotificaciones("No se pudo actualizar la invitación. Intenta de nuevo.");
-      } finally {
-        setAccionInvitacion(null);
-      }
-    },
-    [cargarDashboard, cargarEventos, cargarNotificaciones],
-  );
-
   const cargarEventos = useCallback(async () => {
     try {
       setCargandoEventos(true);
@@ -564,6 +489,81 @@ export default function InicioPage() {
       setCargandoEventos(false);
     }
   }, []);
+
+  const cargarNotificaciones = useCallback(async () => {
+    try {
+      setCargandoNotificaciones(true);
+      setErrorNotificaciones(null);
+
+      const respuesta = await fetch("/api/notificaciones", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+          setNotificaciones([]);
+          setErrorNotificaciones("Inicia sesión para ver tus notificaciones.");
+          return;
+        }
+
+        throw new Error(`Error ${respuesta.status}`);
+      }
+
+      const data: unknown = await respuesta.json();
+      if (
+        !data ||
+        typeof data !== "object" ||
+        !Array.isArray((data as { notificaciones?: unknown }).notificaciones)
+      ) {
+        throw new Error("Respuesta inesperada del servidor");
+      }
+
+      setNotificaciones((data as { notificaciones: Notificacion[] }).notificaciones);
+    } catch (error) {
+      console.error("[Notificaciones] Error al cargar", error);
+      setNotificaciones([]);
+      setErrorNotificaciones("No pudimos cargar la actividad reciente.");
+    } finally {
+      setCargandoNotificaciones(false);
+    }
+  }, []);
+
+  const manejarAccionInvitacion = useCallback(
+    async (objetivo: ObjetivoInvitacion, accion: "aceptar" | "rechazar") => {
+      try {
+        setAccionInvitacion(objetivo);
+        setErrorNotificaciones(null);
+
+        let respuesta: Response;
+        if (objetivo.tipo === "equipo") {
+          respuesta = await fetch(`/api/invitaciones/${objetivo.id}/${accion}`, {
+            method: "PATCH",
+            credentials: "include",
+          });
+        } else {
+          const estado = accion === "aceptar" ? "aceptado" : "rechazado";
+          const url = `/api/events/${objetivo.id}/respuesta?estado=${estado}`;
+          respuesta = await fetch(url, {
+            method: "POST",
+            credentials: "include",
+          });
+        }
+
+        if (!respuesta.ok) {
+          throw new Error(`Error ${respuesta.status}`);
+        }
+
+        await Promise.all([cargarNotificaciones(), cargarDashboard(), cargarEventos()]);
+      } catch (error) {
+        console.error("[Invitaciones] Error al actualizar", error);
+        setErrorNotificaciones("No se pudo actualizar la invitación. Intenta de nuevo.");
+      } finally {
+        setAccionInvitacion(null);
+      }
+    },
+    [cargarDashboard, cargarEventos, cargarNotificaciones],
+  );
 
   useEffect(() => {
     cargarDashboard();
