@@ -11,17 +11,26 @@ const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
   ssr: false,
 });
 
-type TipoEvento = "personal" | "equipo" | "otro";
+type TipoEventoDashboard = "personal" | "equipo" | "otro";
+
+type TipoItemCalendario = "evento" | "tarea_personal" | "tarea_grupal";
+
+type EstadoInvitacion = "pendiente" | "aceptado" | "rechazado" | null;
 
 type Evento = {
-  id: number;
+  id: string;
   titulo: string | null;
   descripcion: string | null;
-  inicio: string;
-  fin: string;
+  inicio: string | null;
+  fin: string | null;
+  fecha: string | null;
   ubicacion: string | null;
-  tipo: TipoEvento | null;
-  equipoNombre?: string | null;
+  tipo: TipoItemCalendario;
+  equipoNombre: string | null;
+  esOrganizador: boolean;
+  esParticipante: boolean;
+  estadoInvitacion: EstadoInvitacion;
+  source: "evento_interno" | "tarea";
 };
 
 type DashboardEvento = {
@@ -30,8 +39,24 @@ type DashboardEvento = {
   descripcion: string | null;
   inicio: string;
   fin: string;
-  tipo: TipoEvento;
+  tipo: TipoEventoDashboard;
   equipoNombre: string | null;
+  estadoInvitacion: EstadoInvitacion;
+  creadorNombre: string | null;
+  esOrganizador: boolean;
+  invitacionId: number | null;
+};
+
+type DashboardInvitacionPendiente = {
+  eventoId: number;
+  invitacionId: number | null;
+  titulo: string;
+  descripcion: string | null;
+  inicio: string;
+  fin: string;
+  equipoNombre: string | null;
+  creadorNombre: string | null;
+  estadoInvitacion: Extract<Exclude<EstadoInvitacion, null>, "pendiente">;
 };
 
 type DashboardTarea = {
@@ -51,6 +76,7 @@ type DashboardTodayResponse = {
   totalTareas: number;
   eventos: DashboardEvento[];
   tareas: DashboardTarea[];
+  invitacionesPendientes: DashboardInvitacionPendiente[];
 };
 
 type Notificacion = {
@@ -58,21 +84,26 @@ type Notificacion = {
   mensaje: string;
   fecha: string;
   tipo: "equipo" | "evento";
-  estado: "pendiente" | "aceptado" | "rechazado" | null;
+  estado: EstadoInvitacion;
   puedeResponder: boolean;
   invitacionId?: number;
+  eventoId?: number;
 };
 
 type ItemHoy = {
   id: string;
   titulo: string;
-  tipo: "evento" | "tarea_personal" | "tarea_grupal";
+  tipo: TipoItemCalendario;
   inicio: string | null;
   fin: string | null;
   fecha: string | null;
   equipoNombre: string | null;
   descripcion?: string | null;
+  estadoInvitacion?: EstadoInvitacion;
+  creadorNombre?: string | null;
 };
+
+type ObjetivoInvitacion = { tipo: "evento" | "equipo"; id: number };
 
 const intlFechaResumen = new Intl.DateTimeFormat("es-ES", {
   weekday: "long",
@@ -89,6 +120,10 @@ const intlFechaNotificacion = new Intl.DateTimeFormat("es-ES", {
 const intlHora = new Intl.DateTimeFormat("es-ES", {
   hour: "2-digit",
   minute: "2-digit",
+});
+
+const intlFechaEvento = new Intl.DateTimeFormat("es-ES", {
+  dateStyle: "long",
 });
 
 const esEventosWrapper = (value: unknown): value is { eventos: unknown[] } => {
@@ -208,15 +243,31 @@ function obtenerEtiquetaEstado(notificacion: Notificacion): { texto: string; cla
   return { texto: "Pendiente", clases: "bg-gray-100 text-gray-600" };
 }
 
-function formatearTipo(tipo: TipoEvento | null | undefined) {
-  if (!tipo) {
-    return "Sin especificar";
+function formatearTipoEvento(evento: Evento) {
+  if (evento.tipo === "tarea_personal") {
+    return "Tarea personal";
   }
 
-  return tipo.charAt(0).toUpperCase() + tipo.slice(1);
+  if (evento.tipo === "tarea_grupal") {
+    return "Tarea grupal";
+  }
+
+  if (evento.equipoNombre) {
+    return "Evento de equipo";
+  }
+
+  if (evento.esOrganizador) {
+    return "Evento organizado por ti";
+  }
+
+  return "Evento";
 }
 
-function formatearFechaDetallada(valor: string) {
+function formatearFechaDetallada(valor: string | null) {
+  if (!valor) {
+    return "Fecha no disponible";
+  }
+
   const fecha = new Date(valor);
   if (Number.isNaN(fecha.getTime())) {
     return "Fecha no disponible";
@@ -228,6 +279,43 @@ function formatearFechaDetallada(valor: string) {
   });
 }
 
+function formatearRangoEvento(inicio: string | null, fin: string | null): string {
+  if (!inicio && !fin) {
+    return "Fecha no disponible";
+  }
+
+  const inicioDate = inicio ? new Date(inicio) : null;
+  const finDate = fin ? new Date(fin) : null;
+
+  if (inicioDate && !Number.isNaN(inicioDate.getTime())) {
+    const fechaTexto = intlFechaEvento.format(inicioDate);
+    const horaInicio = obtenerHora(inicio);
+    const horaFin = obtenerHora(fin);
+
+    if (horaInicio && horaFin) {
+      return `${fechaTexto}, ${horaInicio} — ${horaFin}`;
+    }
+
+    if (horaInicio) {
+      return `${fechaTexto}, ${horaInicio}`;
+    }
+
+    if (horaFin) {
+      return `${fechaTexto}, ${horaFin}`;
+    }
+
+    return fechaTexto;
+  }
+
+  if (finDate && !Number.isNaN(finDate.getTime())) {
+    const fechaTexto = intlFechaEvento.format(finDate);
+    const horaFin = obtenerHora(fin);
+    return horaFin ? `${fechaTexto}, ${horaFin}` : fechaTexto;
+  }
+
+  return "Fecha no disponible";
+}
+
 export default function InicioPage() {
   const [dashboard, setDashboard] = useState<DashboardTodayResponse | null>(null);
   const [cargandoDashboard, setCargandoDashboard] = useState(true);
@@ -236,7 +324,7 @@ export default function InicioPage() {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [cargandoNotificaciones, setCargandoNotificaciones] = useState(true);
   const [errorNotificaciones, setErrorNotificaciones] = useState<string | null>(null);
-  const [accionInvitacion, setAccionInvitacion] = useState<number | null>(null);
+  const [accionInvitacion, setAccionInvitacion] = useState<ObjetivoInvitacion | null>(null);
 
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [cargandoEventos, setCargandoEventos] = useState(true);
@@ -321,21 +409,31 @@ export default function InicioPage() {
   }, []);
 
   const manejarAccionInvitacion = useCallback(
-    async (invitacionId: number, accion: "aceptar" | "rechazar") => {
+    async (objetivo: ObjetivoInvitacion, accion: "aceptar" | "rechazar") => {
       try {
-        setAccionInvitacion(invitacionId);
+        setAccionInvitacion(objetivo);
         setErrorNotificaciones(null);
 
-        const respuesta = await fetch(`/api/invitaciones/${invitacionId}/${accion}`, {
-          method: "PATCH",
-          credentials: "include",
-        });
+        let respuesta: Response;
+        if (objetivo.tipo === "equipo") {
+          respuesta = await fetch(`/api/invitaciones/${objetivo.id}/${accion}`, {
+            method: "PATCH",
+            credentials: "include",
+          });
+        } else {
+          const estado = accion === "aceptar" ? "aceptado" : "rechazado";
+          const url = `/api/events/${objetivo.id}/respuesta?estado=${estado}`;
+          respuesta = await fetch(url, {
+            method: "POST",
+            credentials: "include",
+          });
+        }
 
         if (!respuesta.ok) {
           throw new Error(`Error ${respuesta.status}`);
         }
 
-        await cargarNotificaciones();
+        await Promise.all([cargarNotificaciones(), cargarDashboard(), cargarEventos()]);
       } catch (error) {
         console.error("[Invitaciones] Error al actualizar", error);
         setErrorNotificaciones("No se pudo actualizar la invitación. Intenta de nuevo.");
@@ -343,7 +441,7 @@ export default function InicioPage() {
         setAccionInvitacion(null);
       }
     },
-    [cargarNotificaciones],
+    [cargarDashboard, cargarEventos, cargarNotificaciones],
   );
 
   const cargarEventos = useCallback(async () => {
@@ -374,64 +472,89 @@ export default function InicioPage() {
         .filter(esRegistroEvento)
         .map((registro) => {
           const item = registro as Record<string, unknown>;
-          const idValue = item.id;
-          const inicioValue = item.inicio;
-          const finValue = item.fin;
 
-          if (typeof inicioValue !== "string" || typeof finValue !== "string") {
+          const idValue = item.id;
+          const id = typeof idValue === "string" ? idValue : typeof idValue === "number" ? String(idValue) : null;
+          if (!id) {
             return null;
           }
 
-          const tipoValue = item.tipo;
-          const tipoEvento: TipoEvento | null =
-            tipoValue === "personal" || tipoValue === "equipo" || tipoValue === "otro"
-              ? tipoValue
-              : null;
+          const sourceValue = (item as { source?: unknown }).source;
+          const source = sourceValue === "tarea" || sourceValue === "evento_interno" ? sourceValue : "evento_interno";
 
-          const idNormalizado =
-            typeof idValue === "number"
-              ? idValue
-              : typeof idValue === "string"
-                ? Number.parseInt(idValue, 10)
-                : NaN;
+          const tipoValue = item.tipo;
+          const tipo: TipoItemCalendario =
+            tipoValue === "tarea_personal" || tipoValue === "tarea_grupal"
+              ? tipoValue
+              : "evento";
 
           const tituloValue = item.titulo;
           const descripcionValue = item.descripcion;
           const ubicacionValue = item.ubicacion;
           const equipoValue = (item as { equipo_nombre?: unknown }).equipo_nombre;
+          const estadoValue = (item as { estado_asistencia?: unknown }).estado_asistencia;
+
+          const inicioValue = typeof item.inicio === "string" ? item.inicio : null;
+          const finValue = typeof item.fin === "string" ? item.fin : null;
+          const fechaValue = typeof (item as { fecha?: unknown }).fecha === "string" ? (item as { fecha: string }).fecha : null;
+
+          const esOrganizador = Boolean((item as { es_organizador?: unknown }).es_organizador);
+          const esParticipante = Boolean((item as { es_participante?: unknown }).es_participante);
+
+          const estadoInvitacion: EstadoInvitacion =
+            estadoValue === "pendiente" || estadoValue === "aceptado" || estadoValue === "rechazado"
+              ? estadoValue
+              : null;
+
+          const titulo =
+            typeof tituloValue === "string"
+              ? tituloValue
+              : tituloValue === null
+                ? null
+                : null;
+
+          const descripcion =
+            typeof descripcionValue === "string"
+              ? descripcionValue
+              : descripcionValue === null
+                ? null
+                : null;
+
+          const ubicacion =
+            typeof ubicacionValue === "string"
+              ? ubicacionValue
+              : ubicacionValue === null
+                ? null
+                : null;
+
+          const equipoNombre =
+            typeof equipoValue === "string"
+              ? equipoValue
+              : equipoValue === null
+                ? null
+                : null;
+
+          if (!inicioValue && !fechaValue && !finValue) {
+            return null;
+          }
 
           return {
-            id: idNormalizado,
-            titulo:
-              typeof tituloValue === "string"
-                ? tituloValue
-                : tituloValue === null
-                  ? null
-                  : null,
-            descripcion:
-              typeof descripcionValue === "string"
-                ? descripcionValue
-                : descripcionValue === null
-                  ? null
-                  : null,
+            id,
+            titulo,
+            descripcion,
             inicio: inicioValue,
             fin: finValue,
-            ubicacion:
-              typeof ubicacionValue === "string"
-                ? ubicacionValue
-                : ubicacionValue === null
-                  ? null
-                  : null,
-            tipo: tipoEvento,
-            equipoNombre:
-              typeof equipoValue === "string"
-                ? equipoValue
-                : equipoValue === null
-                  ? null
-                  : null,
+            fecha: fechaValue,
+            ubicacion,
+            tipo,
+            equipoNombre,
+            esOrganizador,
+            esParticipante,
+            estadoInvitacion,
+            source,
           } satisfies Evento;
         })
-        .filter((evento): evento is Evento => Boolean(evento) && Number.isFinite(evento.id));
+        .filter((evento): evento is Evento => Boolean(evento));
 
       setEventos(listaNormalizada);
     } catch (error) {
@@ -466,18 +589,50 @@ export default function InicioPage() {
 
   const eventosCalendario = useMemo(
     () =>
-      eventos.map((evento) => ({
-        id: String(evento.id),
-        title: evento.titulo ?? "(Sin título)",
-        start: evento.inicio,
-        end: evento.fin,
-        extendedProps: {
-          descripcion: evento.descripcion,
-          ubicacion: evento.ubicacion,
-          tipo: evento.tipo,
-          equipoNombre: evento.equipoNombre,
-        },
-      })),
+      eventos
+        .map((evento) => {
+          const inicio = evento.inicio ?? evento.fecha ?? evento.fin;
+          if (!inicio) {
+            return null;
+          }
+
+          const esTarea = evento.tipo === "tarea_personal" || evento.tipo === "tarea_grupal";
+          const esPendiente = evento.tipo === "evento" && evento.estadoInvitacion === "pendiente";
+
+          let backgroundColor = "#3b82f6";
+          let borderColor = "#3b82f6";
+
+          if (esTarea) {
+            if (evento.tipo === "tarea_grupal") {
+              backgroundColor = "#a855f7";
+            } else {
+              backgroundColor = "#22c55e";
+            }
+            borderColor = backgroundColor;
+          } else if (esPendiente) {
+            backgroundColor = "#facc15";
+            borderColor = "#facc15";
+          }
+
+          return {
+            id: evento.id,
+            title: evento.titulo ?? "(Sin título)",
+            start: inicio,
+            end: evento.tipo === "evento" ? evento.fin ?? undefined : undefined,
+            allDay: esTarea || (!evento.inicio && Boolean(evento.fecha)),
+            backgroundColor,
+            borderColor,
+            extendedProps: {
+              descripcion: evento.descripcion,
+              ubicacion: evento.ubicacion,
+              tipo: evento.tipo,
+              equipoNombre: evento.equipoNombre,
+              estadoInvitacion: evento.estadoInvitacion,
+              source: evento.source,
+            },
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item)),
     [eventos],
   );
 
@@ -523,8 +678,8 @@ export default function InicioPage() {
 
   const manejarClickEvento = useCallback(
     (info: EventClickArg) => {
-      const evento = eventos.find((item) => item.id === Number(info.event.id));
-      if (evento) {
+      const evento = eventos.find((item) => item.id === info.event.id);
+      if (evento && evento.source === "evento_interno") {
         abrirModalEvento(evento);
       }
     },
@@ -553,6 +708,23 @@ export default function InicioPage() {
         fecha: evento.inicio ?? null,
         equipoNombre: evento.equipoNombre ?? null,
         descripcion: evento.descripcion,
+        estadoInvitacion: evento.estadoInvitacion,
+        creadorNombre: evento.creadorNombre ?? null,
+      });
+    });
+
+    dashboard.invitacionesPendientes.forEach((invitacion) => {
+      lista.push({
+        id: `evento-pendiente-${invitacion.eventoId}`,
+        titulo: invitacion.titulo,
+        tipo: "evento",
+        inicio: invitacion.inicio,
+        fin: invitacion.fin,
+        fecha: invitacion.inicio ?? null,
+        equipoNombre: invitacion.equipoNombre ?? null,
+        descripcion: invitacion.descripcion,
+        estadoInvitacion: invitacion.estadoInvitacion,
+        creadorNombre: invitacion.creadorNombre ?? null,
       });
     });
 
@@ -571,6 +743,17 @@ export default function InicioPage() {
 
     return lista.sort((a, b) => obtenerTimestamp(a) - obtenerTimestamp(b));
   }, [dashboard]);
+
+  const invitacionesPendientes = dashboard?.invitacionesPendientes ?? [];
+
+  const notificacionesFiltradas = useMemo(
+    () =>
+      notificaciones.filter(
+        (notificacion) =>
+          !(notificacion.tipo === "evento" && notificacion.puedeResponder && typeof notificacion.eventoId === "number"),
+      ),
+    [notificaciones],
+  );
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -617,9 +800,17 @@ export default function InicioPage() {
                               Equipo: {item.equipoNombre}
                             </span>
                           )}
+                          {item.estadoInvitacion === "pendiente" && (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                              Invitación pendiente
+                            </span>
+                          )}
                         </div>
                         <p className="text-base font-semibold text-gray-900">{item.titulo}</p>
                         <p className="text-sm text-gray-600">{formatearHoraItem(item)}</p>
+                        {item.creadorNombre && (
+                          <p className="text-xs text-gray-500">Organiza: {item.creadorNombre}</p>
+                        )}
                         {item.descripcion && (
                           <p className="text-sm text-gray-500">{item.descripcion}</p>
                         )}
@@ -634,7 +825,7 @@ export default function InicioPage() {
           <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Calendario interno</h2>
-              <span className="text-sm text-gray-500">Solo lectura</span>
+              <span className="text-sm text-gray-500">Eventos y tareas</span>
             </div>
 
             <div className="mt-4">
@@ -676,58 +867,140 @@ export default function InicioPage() {
               <p className="mb-3 text-sm text-rose-600">{errorNotificaciones}</p>
             )}
 
-            {cargandoNotificaciones ? (
-              <p className="text-gray-500">Cargando actividad...</p>
-            ) : notificaciones.length === 0 ? (
-              <p className="text-gray-500">No hay notificaciones recientes.</p>
-            ) : (
-              <ul className="space-y-4">
-                {notificaciones.map((notificacion) => {
-                  const etiquetaEstado = obtenerEtiquetaEstado(notificacion);
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Invitaciones pendientes
+                </h3>
+                {cargandoDashboard ? (
+                  <p className="mt-2 text-sm text-gray-500">Revisando invitaciones...</p>
+                ) : invitacionesPendientes.length === 0 ? (
+                  <p className="mt-2 text-sm text-gray-500">No tienes invitaciones pendientes.</p>
+                ) : (
+                  <ul className="mt-3 space-y-3">
+                    {invitacionesPendientes.map((invitacion) => {
+                      const creador = invitacion.creadorNombre ?? "Alguien";
+                      const estaProcesando =
+                        accionInvitacion?.tipo === "evento" && accionInvitacion.id === invitacion.eventoId;
 
-                  return (
-                    <li
-                      key={notificacion.id}
-                      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-                    >
-                      <div className="flex flex-col gap-2">
-                        <p className="text-sm font-medium text-gray-900">{notificacion.mensaje}</p>
-                        <span className="text-xs text-gray-500">
-                          {formatearFechaNotificacion(notificacion.fecha)}
-                        </span>
-                        {etiquetaEstado && (
-                          <span
-                            className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-medium ${etiquetaEstado.clases}`}
-                          >
-                            {etiquetaEstado.texto}
-                          </span>
-                        )}
-                        {notificacion.puedeResponder && notificacion.invitacionId && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => manejarAccionInvitacion(notificacion.invitacionId!, "aceptar")}
-                              disabled={accionInvitacion === notificacion.invitacionId}
-                              className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                            >
-                              Aceptar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => manejarAccionInvitacion(notificacion.invitacionId!, "rechazar")}
-                              disabled={accionInvitacion === notificacion.invitacionId}
-                              className="rounded-lg bg-rose-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-70"
-                            >
-                              Rechazar
-                            </button>
+                      return (
+                        <li
+                          key={`invitacion-evento-${invitacion.eventoId}`}
+                          className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm"
+                        >
+                          <div className="flex flex-col gap-2">
+                            <p className="text-sm font-medium text-gray-900">
+                              {creador} te invitó al evento “{invitacion.titulo}”
+                            </p>
+                            {invitacion.equipoNombre && (
+                              <span className="text-xs text-gray-600">
+                                Equipo: {invitacion.equipoNombre}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-600">
+                              Cuando: {formatearRangoEvento(invitacion.inicio, invitacion.fin)}
+                            </span>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => manejarAccionInvitacion({ tipo: "evento", id: invitacion.eventoId }, "aceptar")}
+                                disabled={estaProcesando}
+                                className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Aceptar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => manejarAccionInvitacion({ tipo: "evento", id: invitacion.eventoId }, "rechazar")}
+                                disabled={estaProcesando}
+                                className="rounded-lg bg-rose-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                Rechazar
+                              </button>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div className="space-y-4 border-t border-gray-200 pt-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Actividad
+                  </h3>
+                  {cargandoNotificaciones && (
+                    <span className="text-xs text-gray-400">Actualizando...</span>
+                  )}
+                </div>
+                {cargandoNotificaciones ? (
+                  <p className="text-sm text-gray-500">Cargando actividad...</p>
+                ) : notificacionesFiltradas.length === 0 ? (
+                  <p className="text-sm text-gray-500">No hay notificaciones recientes.</p>
+                ) : (
+                  <ul className="space-y-4">
+                    {notificacionesFiltradas.map((notificacion) => {
+                      const etiquetaEstado = obtenerEtiquetaEstado(notificacion);
+
+                      const objetivoAccion: ObjetivoInvitacion | null =
+                        notificacion.tipo === "equipo" && typeof notificacion.invitacionId === "number"
+                          ? { tipo: "equipo", id: notificacion.invitacionId }
+                          : notificacion.tipo === "evento" && typeof notificacion.eventoId === "number"
+                            ? { tipo: "evento", id: notificacion.eventoId }
+                            : null;
+
+                      const estaProcesando =
+                        objetivoAccion &&
+                        accionInvitacion?.tipo === objetivoAccion.tipo &&
+                        accionInvitacion.id === objetivoAccion.id;
+
+                      return (
+                        <li
+                          key={notificacion.id}
+                          className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                        >
+                          <div className="flex flex-col gap-2">
+                            <p className="text-sm font-medium text-gray-900">{notificacion.mensaje}</p>
+                            <span className="text-xs text-gray-500">
+                              {formatearFechaNotificacion(notificacion.fecha)}
+                            </span>
+                            {etiquetaEstado && (
+                              <span
+                                className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs font-medium ${etiquetaEstado.clases}`}
+                              >
+                                {etiquetaEstado.texto}
+                              </span>
+                            )}
+                            {notificacion.puedeResponder && objetivoAccion && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => manejarAccionInvitacion(objetivoAccion, "aceptar")}
+                                  disabled={estaProcesando}
+                                  className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  Aceptar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => manejarAccionInvitacion(objetivoAccion, "rechazar")}
+                                  disabled={estaProcesando}
+                                  className="rounded-lg bg-rose-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  Rechazar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
           </section>
         </aside>
       </div>
@@ -752,7 +1025,7 @@ export default function InicioPage() {
                 </h3>
                 <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600">
                   <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden />
-                  {formatearTipo(eventoSeleccionado.tipo)}
+                  {formatearTipoEvento(eventoSeleccionado)}
                 </span>
               </div>
             </div>

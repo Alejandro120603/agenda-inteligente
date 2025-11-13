@@ -12,6 +12,7 @@ type Notificacion = {
   estado: EstadoInvitacion | null;
   puedeResponder: boolean;
   invitacionId?: number;
+  eventoId?: number;
 };
 
 type InvitacionEquipoPendienteRow = {
@@ -31,9 +32,13 @@ type RespuestaEquipoRow = {
 
 type InvitacionEventoPendienteRow = {
   id: number;
+  id_evento: number;
   invitado_en: string;
   titulo_evento: string;
   organizador_nombre: string | null;
+  inicio: string;
+  fin: string;
+  equipo_nombre: string | null;
 };
 
 type RespuestaEventoRow = {
@@ -93,11 +98,16 @@ export async function GET() {
       allQuery<InvitacionEventoPendienteRow>(
         `SELECT
           pei.id,
+          pei.id_evento,
           pei.invitado_en,
           e.titulo AS titulo_evento,
+          e.inicio,
+          e.fin,
+          eq.nombre AS equipo_nombre,
           organizador.nombre AS organizador_nombre
         FROM participantes_evento_interno pei
         INNER JOIN eventos_internos e ON e.id = pei.id_evento
+        LEFT JOIN equipos eq ON eq.id = e.id_equipo
         LEFT JOIN usuarios organizador ON organizador.id = e.id_usuario
         WHERE pei.id_usuario = ? AND pei.estado_asistencia = 'pendiente'`,
         [user.id]
@@ -149,13 +159,15 @@ export async function GET() {
     invitacionesEvento.forEach((invitacion) => {
       const fecha = normalizarFecha(invitacion.invitado_en);
       const organizador = invitacion.organizador_nombre ?? "Alguien";
+      const equipoTexto = invitacion.equipo_nombre ? ` del equipo ${invitacion.equipo_nombre}` : "";
       notificaciones.push({
         id: `evento-pendiente-${invitacion.id}`,
-        mensaje: `${organizador} te invitó al evento ${invitacion.titulo_evento}`,
+        mensaje: `${organizador} te invitó al evento ${invitacion.titulo_evento}${equipoTexto}`,
         fecha,
         tipo: "evento",
         estado: "pendiente",
-        puedeResponder: false,
+        puedeResponder: true,
+        eventoId: invitacion.id_evento,
       });
     });
 
