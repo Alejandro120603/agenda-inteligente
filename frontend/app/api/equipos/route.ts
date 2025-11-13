@@ -9,6 +9,7 @@ interface EquipoRow {
   creado_por: number;
   creador_nombre: string | null;
   miembros: number;
+  rol_usuario: "administrador" | "miembro";
 }
 
 export async function GET() {
@@ -25,6 +26,7 @@ export async function GET() {
         e.creado_en,
         e.creado_por,
         c.nombre AS creador_nombre,
+        me.rol AS rol_usuario,
         (
           SELECT COUNT(*)
           FROM miembros_equipo me2

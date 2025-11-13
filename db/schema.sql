@@ -116,6 +116,7 @@ CREATE TABLE IF NOT EXISTS participantes_reunion (
 CREATE INDEX IF NOT EXISTS idx_cuentas_usuario      ON cuentas_conectadas(id_usuario);
 CREATE INDEX IF NOT EXISTS idx_eventos_cuenta       ON eventos_externos(id_cuenta);
 CREATE INDEX IF NOT EXISTS idx_miembros_equipo      ON miembros_equipo(id_equipo);
+CREATE INDEX IF NOT EXISTS idx_miembros_equipo_usuario ON miembros_equipo(id_usuario);
 CREATE INDEX IF NOT EXISTS idx_reuniones_equipo     ON reuniones_propuestas(id_equipo);
 CREATE INDEX IF NOT EXISTS idx_participantes_reunion ON participantes_reunion(id_reunion);
 
