@@ -16,6 +16,8 @@ type TareaDinamicaRow = {
   equipo_nombre?: string | null;
 };
 
+type EstadoInvitacion = "pendiente" | "aceptado" | "rechazado";
+
 type EventoInternoRow = {
   id: number;
   titulo: string;
@@ -25,6 +27,10 @@ type EventoInternoRow = {
   ubicacion: string | null;
   tipo: "personal" | "equipo" | "otro";
   equipo_nombre: string | null;
+  estado_asistencia: EstadoInvitacion | null;
+  es_organizador: 0 | 1;
+  invitacion_id: number | null;
+  creador_nombre: string | null;
 };
 
 type DashboardEvento = {
@@ -35,6 +41,22 @@ type DashboardEvento = {
   fin: string;
   tipo: "personal" | "equipo" | "otro";
   equipoNombre: string | null;
+  estadoInvitacion: EstadoInvitacion | null;
+  creadorNombre: string | null;
+  esOrganizador: boolean;
+  invitacionId: number | null;
+};
+
+type DashboardInvitacionPendiente = {
+  eventoId: number;
+  invitacionId: number | null;
+  titulo: string;
+  descripcion: string | null;
+  inicio: string;
+  fin: string;
+  equipoNombre: string | null;
+  creadorNombre: string | null;
+  estadoInvitacion: Extract<EstadoInvitacion, "pendiente">;
 };
 
 type DashboardTarea = {
@@ -55,6 +77,7 @@ type DashboardTodayResponse = {
   totalTareas: number;
   eventos: DashboardEvento[];
   tareas: DashboardTarea[];
+  invitacionesPendientes: DashboardInvitacionPendiente[];
 };
 
 interface PragmaTableInfoRow {
@@ -265,7 +288,15 @@ async function obtenerTareasParaHoy(userId: number, hoyIso: string): Promise<Das
   }
 }
 
-async function obtenerEventosParaHoy(userId: number, hoyIso: string): Promise<DashboardEvento[]> {
+type EventosHoyResultado = {
+  confirmados: DashboardEvento[];
+  pendientes: DashboardInvitacionPendiente[];
+};
+
+async function obtenerEventosParaHoy(
+  userId: number,
+  hoyIso: string,
+): Promise<EventosHoyResultado> {
   const eventos = await allQuery<EventoInternoRow>(
     `SELECT
       e.id,
@@ -275,41 +306,75 @@ async function obtenerEventosParaHoy(userId: number, hoyIso: string): Promise<Da
       e.fin,
       e.ubicacion,
       e.tipo,
-      eq.nombre AS equipo_nombre
+      eq.nombre AS equipo_nombre,
+      pei.estado_asistencia,
+      CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador,
+      pei.id AS invitacion_id,
+      creador.nombre AS creador_nombre
     FROM eventos_internos e
     LEFT JOIN participantes_evento_interno pei
       ON pei.id_evento = e.id AND pei.id_usuario = ?
     LEFT JOIN equipos eq ON eq.id = e.id_equipo
+    LEFT JOIN usuarios creador ON creador.id = e.id_usuario
     WHERE e.id_usuario = ? OR pei.id IS NOT NULL`,
-    [userId, userId]
+    [userId, userId, userId]
   );
 
-  return eventos.filter((evento) => {
+  const confirmados: DashboardEvento[] = [];
+  const pendientes: DashboardInvitacionPendiente[] = [];
+
+  eventos.forEach((evento) => {
     const inicioIso = obtenerFechaIso(evento.inicio);
     const finIso = obtenerFechaIso(evento.fin);
 
+    let coincideConHoy = false;
+
     if (inicioIso && finIso) {
-      return inicioIso <= hoyIso && finIso >= hoyIso;
+      coincideConHoy = inicioIso <= hoyIso && finIso >= hoyIso;
+    } else if (inicioIso) {
+      coincideConHoy = inicioIso === hoyIso;
+    } else if (finIso) {
+      coincideConHoy = finIso === hoyIso;
     }
 
-    if (inicioIso) {
-      return inicioIso === hoyIso;
+    if (!coincideConHoy) {
+      return;
     }
 
-    if (finIso) {
-      return finIso === hoyIso;
+    const estadoActual =
+      evento.estado_asistencia ?? (evento.es_organizador ? "aceptado" : null);
+
+    if (estadoActual === "pendiente" && evento.es_organizador === 0) {
+      pendientes.push({
+        eventoId: evento.id,
+        invitacionId: evento.invitacion_id,
+        titulo: evento.titulo,
+        descripcion: evento.descripcion,
+        inicio: evento.inicio,
+        fin: evento.fin,
+        equipoNombre: evento.equipo_nombre,
+        creadorNombre: evento.creador_nombre,
+        estadoInvitacion: "pendiente",
+      });
+      return;
     }
 
-    return false;
-  }).map((evento) => ({
-    id: evento.id,
-    titulo: evento.titulo,
-    descripcion: evento.descripcion,
-    inicio: evento.inicio,
-    fin: evento.fin,
-    tipo: evento.tipo,
-    equipoNombre: evento.equipo_nombre,
-  }));
+    confirmados.push({
+      id: evento.id,
+      titulo: evento.titulo,
+      descripcion: evento.descripcion,
+      inicio: evento.inicio,
+      fin: evento.fin,
+      tipo: evento.tipo,
+      equipoNombre: evento.equipo_nombre,
+      estadoInvitacion: estadoActual,
+      creadorNombre: evento.creador_nombre,
+      esOrganizador: evento.es_organizador === 1,
+      invitacionId: evento.invitacion_id,
+    });
+  });
+
+  return { confirmados, pendientes };
 }
 
 export async function GET() {
@@ -329,7 +394,7 @@ export async function GET() {
       year: "numeric",
     }).format(ahora);
 
-    const [eventos, tareas] = await Promise.all([
+    const [{ confirmados, pendientes }, tareas] = await Promise.all([
       obtenerEventosParaHoy(user.id, hoyIso),
       obtenerTareasParaHoy(user.id, hoyIso),
     ]);
@@ -340,10 +405,11 @@ export async function GET() {
       nombre: user.nombre,
       fechaIso: hoyIso,
       fechaLegible: formatoLegible,
-      totalEventos: eventos.length,
+      totalEventos: confirmados.length + pendientes.length,
       totalTareas: tareasPendientes.length,
-      eventos,
+      eventos: confirmados,
       tareas: tareasPendientes,
+      invitacionesPendientes: pendientes,
     };
 
     return NextResponse.json(payload);
