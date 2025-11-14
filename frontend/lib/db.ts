@@ -72,6 +72,30 @@ function initializeTeamSchema(database: SqliteDatabase) {
     );
 
     database.run(
+      "CREATE INDEX IF NOT EXISTS idx_miembros_equipo ON miembros_equipo(id_equipo)",
+      (error) => {
+        if (error) {
+          console.error(
+            "[DB] Error creando el índice idx_miembros_equipo",
+            error
+          );
+        }
+      }
+    );
+
+    database.run(
+      "CREATE INDEX IF NOT EXISTS idx_miembros_equipo_usuario ON miembros_equipo(id_usuario)",
+      (error) => {
+        if (error) {
+          console.error(
+            "[DB] Error creando el índice idx_miembros_equipo_usuario",
+            error
+          );
+        }
+      }
+    );
+
+    database.run(
       "ALTER TABLE eventos_internos ADD COLUMN id_equipo INTEGER REFERENCES equipos(id) ON DELETE SET NULL",
       (error) => {
         if (error && !String(error.message).includes("duplicate column name")) {
