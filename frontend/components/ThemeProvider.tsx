@@ -14,9 +14,9 @@ export type ThemePreference = "light" | "dark" | "auto";
 
 // Puedes ajustar los horarios en los que el modo automático cambia entre claro y oscuro.
 // Modifica las constantes de hora y minuto según tus necesidades.
-const AUTO_THEME_DAY_START_HOUR = 7; // 7:00 am
-const AUTO_THEME_DAY_START_MINUTE = 0;
-const AUTO_THEME_NIGHT_START_HOUR = 19; // 7:00 pm
+const AUTO_THEME_DAY_START_HOUR = 23; // 7:00 am
+const AUTO_THEME_DAY_START_MINUTE = 39;
+const AUTO_THEME_NIGHT_START_HOUR = 0; // 0:00 am
 const AUTO_THEME_NIGHT_START_MINUTE = 0;
 
 type ThemeContextValue = {
