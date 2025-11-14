@@ -409,12 +409,6 @@ const CalendarioUnificadoPage = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-300">
-            <p className="font-semibold text-gray-800 dark:text-gray-100">Consejo</p>
-            <p className="mt-1 text-gray-600 dark:text-gray-300">
-              Arrastra eventos directamente en el calendario para reorganizar tu semana una vez que esta funcionalidad esté disponible.
-            </p>
-          </div>
         </aside>
       </div>
       <CrearEventoModal

@@ -8,6 +8,8 @@ type Alcance = "personal" | "equipo";
 type TipoRegistro = "evento" | "tarea";
 type TipoUnificado = "evento" | "tarea_personal" | "tarea_grupal";
 
+type EstadoEvento = "confirmado" | "cancelado" | "tentativo";
+
 interface EventoInternoRow {
   id: number;
   id_usuario: number;
@@ -17,9 +19,13 @@ interface EventoInternoRow {
   inicio: string;
   fin: string;
   tipo: string;
+  ubicacion: string | null;
   equipo_nombre: string | null;
   estado_asistencia: "pendiente" | "aceptado" | "rechazado" | null;
   es_organizador: 0 | 1;
+  es_participante: 0 | 1;
+  estado_evento: EstadoEvento;
+  creador_nombre: string | null;
 }
 
 interface TareaRow {
@@ -56,11 +62,18 @@ interface EventoUnificado {
   inicio: string | null;
   fin: string | null;
   fecha: string | null;
+  ubicacion: string | null;
   idEquipo: number | null;
   alcance: Alcance;
   equipoNombre: string | null;
   estadoAsistencia: "pendiente" | "aceptado" | "rechazado" | null;
   esOrganizador: boolean;
+  esParticipante?: boolean;
+  es_participante?: boolean;
+  estadoEvento?: EstadoEvento;
+  estado_evento?: EstadoEvento;
+  creadorNombre?: string | null;
+  creador_nombre?: string | null;
 }
 
 async function obtenerUsuarioAutenticado(): Promise<number | null> {
@@ -272,37 +285,54 @@ export async function GET() {
          e.inicio,
          e.fin,
          e.tipo,
+         e.ubicacion,
          eq.nombre AS equipo_nombre,
          pei.estado_asistencia,
-         CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador
+         CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador,
+         CASE WHEN pei.id IS NOT NULL THEN 1 ELSE 0 END AS es_participante,
+         'confirmado' AS estado_evento,
+         creador.nombre AS creador_nombre
        FROM eventos_internos e
        LEFT JOIN participantes_evento_interno pei
          ON pei.id_evento = e.id AND pei.id_usuario = ?
        LEFT JOIN equipos eq ON eq.id = e.id_equipo
+       LEFT JOIN usuarios creador ON creador.id = e.id_usuario
       WHERE e.id_usuario = ? OR pei.id IS NOT NULL
       ORDER BY datetime(e.inicio) ASC`,
       [userId, userId, userId]
     );
 
-    const eventosUnificados: EventoUnificado[] = eventos.map((evento) => ({
-      id: `evento-${evento.id}`,
-      source: "evento_interno",
-      sourceId: evento.id,
-      tipo: "evento",
-      titulo: evento.titulo,
-      descripcion: evento.descripcion ?? null,
-      inicio: evento.inicio,
-      fin: evento.fin,
-      fecha: null,
-      idEquipo: evento.id_equipo,
-      alcance: evento.id_equipo ? "equipo" : "personal",
-      equipoNombre: evento.equipo_nombre ?? null,
-      estadoAsistencia:
-        evento.es_organizador === 1
-          ? "aceptado"
-          : evento.estado_asistencia ?? "pendiente",
-      esOrganizador: evento.es_organizador === 1,
-    }));
+    const eventosUnificados: EventoUnificado[] = eventos.map((evento) => {
+      const esParticipante =
+        evento.es_organizador === 1 || evento.es_participante === 1;
+
+      return {
+        id: `evento-${evento.id}`,
+        source: "evento_interno",
+        sourceId: evento.id,
+        tipo: "evento",
+        titulo: evento.titulo,
+        descripcion: evento.descripcion ?? null,
+        inicio: evento.inicio,
+        fin: evento.fin,
+        fecha: null,
+        ubicacion: evento.ubicacion ?? null,
+        idEquipo: evento.id_equipo,
+        alcance: evento.id_equipo ? "equipo" : "personal",
+        equipoNombre: evento.equipo_nombre ?? null,
+        estadoAsistencia:
+          evento.es_organizador === 1
+            ? "aceptado"
+            : evento.estado_asistencia ?? "pendiente",
+        esOrganizador: evento.es_organizador === 1,
+        esParticipante,
+        es_participante: esParticipante,
+        estadoEvento: evento.estado_evento ?? "confirmado",
+        estado_evento: evento.estado_evento ?? "confirmado",
+        creadorNombre: evento.creador_nombre ?? null,
+        creador_nombre: evento.creador_nombre ?? null,
+      };
+    });
 
     const tareas = await allQuery<TareaRow>(
       `SELECT
@@ -340,11 +370,16 @@ export async function GET() {
         inicio: null,
         fin: null,
         fecha: tarea.fecha,
+        ubicacion: null,
         idEquipo: tarea.id_equipo,
         alcance,
         equipoNombre: tarea.equipo_nombre ?? null,
         estadoAsistencia: null,
         esOrganizador: tarea.id_usuario === userId,
+        esParticipante: tarea.id_usuario === userId,
+        es_participante: tarea.id_usuario === userId,
+        creadorNombre: null,
+        creador_nombre: null,
       };
     });
 
@@ -352,7 +387,7 @@ export async function GET() {
       (a, b) => obtenerFechaOrden(a) - obtenerFechaOrden(b)
     );
 
-    return NextResponse.json(combinados);
+    return NextResponse.json({ eventos: combinados });
   } catch (error) {
     console.error("[GET /api/events]", error);
     return NextResponse.json(
