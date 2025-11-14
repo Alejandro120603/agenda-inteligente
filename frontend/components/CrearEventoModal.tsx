@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ButtonHTMLAttributes,
+  type ChangeEvent,
+  type FormEvent,
+  type HTMLAttributes,
+} from "react";
 
 interface EquipoOption {
   id: number;
@@ -44,6 +53,61 @@ interface DisponibilidadRespuesta {
 }
 
 const HORA_REGEX = /^\d{2}:\d{2}$/;
+
+const cn = (...classes: Array<string | false | null | undefined>) =>
+  classes.filter(Boolean).join(" ");
+
+interface DialogContentProps extends HTMLAttributes<HTMLDivElement> {}
+
+const DialogContent = ({ className, ...props }: DialogContentProps) => (
+  <div
+    className={cn(
+      "relative z-10 w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950",
+      className
+    )}
+    {...props}
+  />
+);
+
+interface ModalHeaderProps {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+}
+
+const ModalHeader = ({ title, subtitle, onClose }: ModalHeaderProps) => (
+  <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
+    <div>
+      <p className="text-sm font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">{subtitle}</p>
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{title}</h2>
+    </div>
+    <button
+      type="button"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:outline-gray-600"
+      onClick={onClose}
+      aria-label="Cerrar"
+    >
+      ×
+    </button>
+  </div>
+);
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "ghost";
+}
+
+const Button = ({ variant = "default", className, ...props }: ButtonProps) => (
+  <button
+    className={cn(
+      "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
+      variant === "ghost"
+        ? "border border-gray-300 text-gray-600 hover:bg-gray-50 focus-visible:outline-gray-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/80 dark:focus-visible:outline-gray-600"
+        : "bg-blue-600 text-white shadow-sm hover:bg-blue-500 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-400 dark:focus-visible:outline-blue-400",
+      className
+    )}
+    {...props}
+  />
+);
 
 const formatearFecha = (valor: Date) => {
   const year = valor.getFullYear();
@@ -397,32 +461,17 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
       return;
     }
 
-    if (!form.fechaInicio || !form.fechaFin || !form.horaInicio || !form.horaFin) {
-      setErrorLocal("Completa las fechas y horas del evento");
-      return;
-    }
-
-    const inicioIso = `${form.fechaInicio}T${form.horaInicio}`;
-    const finIso = `${form.fechaFin}T${form.horaFin}`;
-    const inicioFecha = new Date(inicioIso);
-    const finFecha = new Date(finIso);
-
-    if (Number.isNaN(inicioFecha.getTime()) || Number.isNaN(finFecha.getTime())) {
-      setErrorLocal("Las fechas proporcionadas no son válidas");
-      return;
-    }
-
-    if (finFecha.getTime() <= inicioFecha.getTime()) {
-      setErrorLocal("La fecha final debe ser mayor a la inicial");
-      return;
-    }
+    const descripcionTexto = form.descripcion.trim();
+    const descripcionNormalizada = descripcionTexto.length > 0 ? descripcionTexto : null;
+    const esEvento = form.tipoBase === "evento";
 
     let equipoIdNumero: number | null = null;
     if (form.alcance === "equipo") {
       if (!form.equipoId) {
-        setErrorLocal("Selecciona un equipo para la tarea grupal");
+        setErrorLocal("Selecciona un equipo para continuar");
         return;
       }
+
       equipoIdNumero = Number(form.equipoId);
       if (!Number.isInteger(equipoIdNumero) || equipoIdNumero <= 0) {
         setErrorLocal("Selecciona un equipo válido");
@@ -430,22 +479,55 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
       }
     }
 
-    const descripcionTexto = form.descripcion.trim();
+    let inicioIso: string | null = null;
+    let finIso: string | null = null;
+    let fechaTarea: string | null = null;
+    let duracionMinutos: number | null = null;
 
-    const payload: Record<string, unknown> = {
-      titulo,
-      descripcion: descripcionTexto.length > 0 ? descripcionTexto : undefined,
-      fecha_inicio: form.fechaInicio,
-      hora_inicio: form.horaInicio,
-      fecha_fin: form.fechaFin,
-      hora_fin: form.horaFin,
-      tipo: tipoDerivado,
-      es_equipo: form.alcance === "equipo" ? 1 : 0,
-    };
+    if (esEvento) {
+      if (!form.fechaInicio || !form.fechaFin || !form.horaInicio || !form.horaFin) {
+        setErrorLocal("Completa las fechas y horas del evento");
+        return;
+      }
 
-    if (typeof equipoIdNumero === "number") {
-      payload.equipo_id = equipoIdNumero;
+      const inicioLocal = combinarFechaHoraLocal(form.fechaInicio, form.horaInicio);
+      const finLocal = combinarFechaHoraLocal(form.fechaFin, form.horaFin);
+      const inicioFecha = parseLocalDateTime(inicioLocal);
+      const finFecha = parseLocalDateTime(finLocal);
+
+      if (!inicioFecha || !finFecha) {
+        setErrorLocal("Las fechas proporcionadas no son válidas");
+        return;
+      }
+
+      if (finFecha.getTime() <= inicioFecha.getTime()) {
+        setErrorLocal("La fecha final debe ser mayor a la inicial");
+        return;
+      }
+
+      inicioIso = inicioLocal;
+      finIso = finLocal;
+      duracionMinutos = Math.round((finFecha.getTime() - inicioFecha.getTime()) / (60 * 1000));
+    } else {
+      if (!form.fechaInicio) {
+        setErrorLocal("Selecciona la fecha de la tarea");
+        return;
+      }
+
+      fechaTarea = form.fechaInicio;
     }
+
+    const payload = {
+      tipoRegistro: esEvento ? "evento" : "tarea",
+      alcance: form.alcance,
+      titulo,
+      descripcion: descripcionNormalizada,
+      inicio: inicioIso,
+      fin: finIso,
+      fecha: fechaTarea,
+      idEquipo: equipoIdNumero,
+      duracionMinutos,
+    };
 
     setEnviando(true);
     setErrorLocal(null);
@@ -481,25 +563,16 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
   return (
     <div className="fixed inset-0 z-40 flex min-h-screen items-center justify-center bg-slate-900/50 px-4 py-6">
       <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950 max-h-[90vh]">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">Nuevo registro</p>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Crear evento o tarea</h2>
-          </div>
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            onClick={onClose}
-            aria-label="Cerrar"
-          >
-            ×
-          </button>
-        </div>
-        <form onSubmit={handleCreate} className="flex h-full flex-col text-gray-900 dark:text-gray-100">
-          <div
-            className="flex-1 max-h-[85vh] overflow-y-auto overscroll-contain px-6 py-6 scrollbar-thin"
-            onWheel={(evento) => evento.stopPropagation()}
+      <DialogContent className="flex max-h-[90vh] flex-col">
+        <ModalHeader title="Crear evento o tarea" subtitle="Nuevo registro" onClose={onClose} />
+        <div
+          className="flex-1 overflow-y-auto px-6 py-6"
+          onWheel={(evento) => evento.stopPropagation()}
+        >
+          <form
+            id="crear-evento-form"
+            onSubmit={handleCreate}
+            className="space-y-6 text-gray-900 dark:text-gray-100"
           >
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -797,36 +870,26 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
                 </div>
               )}
             </div>
+          </form>
+        </div>
+        <div className="flex flex-col gap-3 border-t border-gray-100 px-6 py-4 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            {tipoDerivado === "evento"
+              ? "El registro se añadirá como evento con horario."
+              : tipoDerivado === "tarea_grupal"
+                ? "Se creará una tarea grupal para tu equipo."
+                : "Se añadirá una tarea personal para ese día."}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="ghost" type="button" onClick={onClose} disabled={enviando}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="crear-evento-form" disabled={enviando}>
+              {enviando ? "Creando..." : "Crear"}
+            </Button>
           </div>
-
-          <div className="flex shrink-0 flex-col gap-3 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {tipoDerivado === "evento"
-                ? "El registro se añadirá como evento con horario."
-                : tipoDerivado === "tarea_grupal"
-                  ? "Se creará una tarea grupal para tu equipo."
-                  : "Se añadirá una tarea personal para ese día."}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-2xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/80"
-                onClick={onClose}
-                disabled={enviando}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-400"
-                disabled={enviando}
-              >
-                {enviando ? "Creando..." : "Crear"}
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
+        </div>
+      </DialogContent>
     </div>
   );
 };

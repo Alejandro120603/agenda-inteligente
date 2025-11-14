@@ -121,6 +121,7 @@ export function generateTimeSlots(
   endIso: string,
   durationMinutes: number
 ): string[] {
+  const STEP_MINUTES = 30;
   const startDate = new Date(startIso);
   const endDate = new Date(endIso);
   const startMs = startDate.getTime();
@@ -131,8 +132,7 @@ export function generateTimeSlots(
     Number.isNaN(startMs) ||
     Number.isNaN(endMs) ||
     durationMs <= 0 ||
-    startMs >= endMs ||
-    durationMs > endMs - startMs + 1
+    startMs >= endMs
   ) {
     return [];
   }
@@ -141,19 +141,21 @@ export function generateTimeSlots(
   normalizedStart.setSeconds(0, 0);
 
   const minutesFromMidnight = normalizedStart.getHours() * 60 + normalizedStart.getMinutes();
-  const remainder = minutesFromMidnight % durationMinutes;
+  const remainder = minutesFromMidnight % STEP_MINUTES;
   if (remainder !== 0) {
-    normalizedStart.setMinutes(normalizedStart.getMinutes() + (durationMinutes - remainder));
+    normalizedStart.setMinutes(normalizedStart.getMinutes() + (STEP_MINUTES - remainder));
   }
 
   let cursor = normalizedStart.getTime();
+  const stepMs = STEP_MINUTES * MINUTE_IN_MS;
+
   while (cursor < startMs) {
-    cursor += durationMs;
+    cursor += stepMs;
   }
 
   const slots: string[] = [];
 
-  for (let current = cursor; current + durationMs <= endMs; current += durationMs) {
+  for (let current = cursor; current + durationMs <= endMs; current += stepMs) {
     const slotDate = new Date(current);
     slotDate.setSeconds(0, 0);
     slotDate.setMilliseconds(0);
