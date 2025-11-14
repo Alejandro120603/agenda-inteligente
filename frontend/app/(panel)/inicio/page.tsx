@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import EditarEventoModal from "@/components/EditarEventoModal";
 import type { EventClickArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -31,6 +32,10 @@ type Evento = {
   esParticipante: boolean;
   estadoInvitacion: EstadoInvitacion;
   source: "evento_interno" | "tarea";
+  sourceId: number | null;
+  equipoId: number | null;
+  estadoEvento: string | null;
+  creadorNombre: string | null;
 };
 
 type DashboardEvento = {
@@ -125,6 +130,108 @@ const intlHora = new Intl.DateTimeFormat("es-ES", {
 const intlFechaEvento = new Intl.DateTimeFormat("es-ES", {
   dateStyle: "long",
 });
+
+const intlFechaCompromiso = new Intl.DateTimeFormat("es-ES", {
+  dateStyle: "medium",
+});
+
+type IconProps = { className?: string };
+
+const combineClassNames = (...clases: Array<string | false | null | undefined>) => clases.filter(Boolean).join(" ");
+
+function PencilMiniIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M16.862 3.487a2.25 2.25 0 1 1 3.182 3.182L7.125 19.586 3 21l1.414-4.125 12.448-13.388Z" />
+    </svg>
+  );
+}
+
+function CalendarMiniIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x={3.75} y={4.5} width={16.5} height={15.75} rx={2} />
+      <path d="M8 3v3" />
+      <path d="M16 3v3" />
+      <path d="M3.75 9h16.5" />
+    </svg>
+  );
+}
+
+function UserMiniIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7.5 20.25a4.5 4.5 0 0 1 9 0" />
+      <path d="M12 3.75a3.75 3.75 0 1 1 0 7.5 3.75 3.75 0 0 1 0-7.5Z" />
+    </svg>
+  );
+}
+
+function UsersMiniIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 20.25a4.5 4.5 0 0 1 9 0" />
+      <path d="M15 20.25a4.5 4.5 0 0 1 4.5-4.5" />
+      <path d="M12 3.75a3.75 3.75 0 1 1 0 7.5 3.75 3.75 0 0 1 0-7.5Z" />
+      <path d="M18 4.5a3 3 0 1 1-2.121 5.121" />
+    </svg>
+  );
+}
+
+const ICONOS_COMPROMISO: Record<TipoItemCalendario, (props: IconProps) => JSX.Element> = {
+  evento: CalendarMiniIcon,
+  tarea_personal: UserMiniIcon,
+  tarea_grupal: UsersMiniIcon,
+};
+
+const CONFIG_COMPROMISO: Record<
+  TipoItemCalendario,
+  { etiqueta: string; clases: string; icono: string }
+> = {
+  evento: { etiqueta: "Evento", clases: "bg-blue-500/15 text-blue-400", icono: "bg-blue-500/10 text-blue-500" },
+  tarea_personal: {
+    etiqueta: "Tarea personal",
+    clases: "bg-green-500/15 text-green-400",
+    icono: "bg-green-500/10 text-green-500",
+  },
+  tarea_grupal: {
+    etiqueta: "Tarea grupal",
+    clases: "bg-purple-500/15 text-purple-400",
+    icono: "bg-purple-500/10 text-purple-500",
+  },
+};
 
 const esEventosWrapper = (value: unknown): value is { eventos: unknown[] } => {
   if (!value || typeof value !== "object") {
@@ -261,42 +368,6 @@ function obtenerEtiquetaEstado(notificacion: Notificacion): { texto: string; cla
   };
 }
 
-function formatearTipoEvento(evento: Evento) {
-  if (evento.tipo === "tarea_personal") {
-    return "Tarea personal";
-  }
-
-  if (evento.tipo === "tarea_grupal") {
-    return "Tarea grupal";
-  }
-
-  if (evento.equipoNombre) {
-    return "Evento de equipo";
-  }
-
-  if (evento.esOrganizador) {
-    return "Evento organizado por ti";
-  }
-
-  return "Evento";
-}
-
-function formatearFechaDetallada(valor: string | null) {
-  if (!valor) {
-    return "Fecha no disponible";
-  }
-
-  const fecha = new Date(valor);
-  if (Number.isNaN(fecha.getTime())) {
-    return "Fecha no disponible";
-  }
-
-  return fecha.toLocaleString("es-ES", {
-    dateStyle: "full",
-    timeStyle: "short",
-  });
-}
-
 function formatearRangoEvento(inicio: string | null, fin: string | null): string {
   if (!inicio && !fin) {
     return "Fecha no disponible";
@@ -334,6 +405,70 @@ function formatearRangoEvento(inicio: string | null, fin: string | null): string
   return "Fecha no disponible";
 }
 
+function obtenerFechaBaseCompromiso(evento: Evento): Date | null {
+  if (evento.tipo === "evento") {
+    if (evento.inicio) {
+      const inicio = new Date(evento.inicio);
+      if (!Number.isNaN(inicio.getTime())) {
+        return inicio;
+      }
+    }
+
+    if (evento.fin) {
+      const fin = new Date(evento.fin);
+      if (!Number.isNaN(fin.getTime())) {
+        return fin;
+      }
+    }
+
+    return null;
+  }
+
+  if (!evento.fecha) {
+    return null;
+  }
+
+  const fecha = evento.fecha.includes("T") ? new Date(evento.fecha) : new Date(`${evento.fecha}T00:00:00`);
+  if (Number.isNaN(fecha.getTime())) {
+    return null;
+  }
+
+  return fecha;
+}
+
+function truncarDescripcion(valor: string | null, limite = 120): string | null {
+  if (!valor) {
+    return null;
+  }
+
+  const texto = valor.trim();
+  if (texto.length <= limite) {
+    return texto;
+  }
+
+  return `${texto.slice(0, limite - 3)}...`;
+}
+
+function formatearResumenCompromiso(evento: Evento): string {
+  if (evento.tipo === "evento") {
+    return formatearRangoEvento(evento.inicio, evento.fin);
+  }
+
+  if (!evento.fecha) {
+    return "Sin fecha";
+  }
+
+  const fecha = evento.fecha.includes("T") ? new Date(evento.fecha) : new Date(`${evento.fecha}T00:00:00`);
+  if (Number.isNaN(fecha.getTime())) {
+    return "Sin fecha";
+  }
+
+  const fechaTexto = intlFechaCompromiso.format(fecha);
+  const hora = evento.fecha.includes("T") ? obtenerHora(evento.fecha) : null;
+
+  return hora ? `${fechaTexto} · ${hora}` : fechaTexto;
+}
+
 export default function InicioPage() {
   const [dashboard, setDashboard] = useState<DashboardTodayResponse | null>(null);
   const [cargandoDashboard, setCargandoDashboard] = useState(true);
@@ -346,10 +481,8 @@ export default function InicioPage() {
 
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [cargandoEventos, setCargandoEventos] = useState(true);
-  const [mostrarModal, setMostrarModal] = useState(false);
-  const [cerrandoModal, setCerrandoModal] = useState(false);
-  const [eventoSeleccionado, setEventoSeleccionado] = useState<Evento | null>(null);
-  const cierreModalTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [modalEdicionAbierto, setModalEdicionAbierto] = useState(false);
+  const [eventoEdicion, setEventoEdicion] = useState<Evento | null>(null);
 
   const cargarDashboard = useCallback(async () => {
     try {
@@ -425,6 +558,15 @@ export default function InicioPage() {
           const sourceValue = (item as { source?: unknown }).source;
           const source = sourceValue === "tarea" || sourceValue === "evento_interno" ? sourceValue : "evento_interno";
 
+          const sourceIdRaw =
+            (item as { source_id?: unknown }).source_id ?? (item as { sourceId?: unknown }).sourceId ?? null;
+          const sourceId =
+            typeof sourceIdRaw === "number"
+              ? sourceIdRaw
+              : typeof sourceIdRaw === "string" && sourceIdRaw.trim() && !Number.isNaN(Number(sourceIdRaw))
+                ? Number(sourceIdRaw)
+                : null;
+
           const tipoValue = item.tipo;
           const tipo: TipoItemCalendario =
             tipoValue === "tarea_personal" || tipoValue === "tarea_grupal"
@@ -435,7 +577,12 @@ export default function InicioPage() {
           const descripcionValue = item.descripcion;
           const ubicacionValue = item.ubicacion;
           const equipoValue = (item as { equipo_nombre?: unknown }).equipo_nombre;
+          const equipoIdRaw = (item as { id_equipo?: unknown }).id_equipo ?? (item as { idEquipo?: unknown }).idEquipo;
           const estadoValue = (item as { estado_asistencia?: unknown }).estado_asistencia;
+          const estadoEventoValue =
+            (item as { estado_evento?: unknown }).estado_evento ?? (item as { estadoEvento?: unknown }).estadoEvento;
+          const creadorNombreValue =
+            (item as { creador_nombre?: unknown }).creador_nombre ?? (item as { creadorNombre?: unknown }).creadorNombre;
 
           const inicioValue = typeof item.inicio === "string" ? item.inicio : null;
           const finValue = typeof item.fin === "string" ? item.fin : null;
@@ -495,6 +642,21 @@ export default function InicioPage() {
             esParticipante,
             estadoInvitacion,
             source,
+            sourceId: typeof sourceId === "number" && Number.isFinite(sourceId) ? sourceId : null,
+            equipoId:
+              typeof equipoIdRaw === "number"
+                ? equipoIdRaw
+                : typeof equipoIdRaw === "string" && equipoIdRaw.trim() && !Number.isNaN(Number(equipoIdRaw))
+                  ? Number(equipoIdRaw)
+                  : null,
+            estadoEvento:
+              typeof estadoEventoValue === "string" ? estadoEventoValue : null,
+            creadorNombre:
+              typeof creadorNombreValue === "string"
+                ? creadorNombreValue
+                : creadorNombreValue === null
+                  ? null
+                  : null,
           } satisfies Evento;
         })
         .filter((evento): evento is Evento => Boolean(evento));
@@ -595,14 +757,6 @@ export default function InicioPage() {
     cargarEventos();
   }, [cargarEventos]);
 
-  useEffect(() => {
-    return () => {
-      if (cierreModalTimeout.current) {
-        clearTimeout(cierreModalTimeout.current);
-      }
-    };
-  }, []);
-
   const plugins = useMemo(() => [dayGridPlugin, interactionPlugin], []);
 
   const eventosCalendario = useMemo(
@@ -654,37 +808,57 @@ export default function InicioPage() {
     [eventos],
   );
 
-  const abrirModalEvento = useCallback(
-    (evento: Evento) => {
-      if (cierreModalTimeout.current) {
-        clearTimeout(cierreModalTimeout.current);
-        cierreModalTimeout.current = null;
-      }
+  const proximosCompromisos = useMemo(() => {
+    const ahora = Date.now();
+    const limitePasado = ahora - 60 * 60 * 1000;
+    const estadosExcluidos = new Set(["cancelado", "eliminado"]);
 
-      setEventoSeleccionado(evento);
-      setCerrandoModal(false);
-      setMostrarModal(true);
-    },
-    [],
-  );
+    return eventos
+      .map((evento) => {
+        if (evento.estadoInvitacion === "rechazado") {
+          return null;
+        }
 
-  const cerrarModalEvento = useCallback(() => {
-    setCerrandoModal(true);
-    cierreModalTimeout.current = setTimeout(() => {
-      setMostrarModal(false);
-      setEventoSeleccionado(null);
-      setCerrandoModal(false);
-    }, 200);
+        const estadoGeneral = evento.estadoEvento?.toLowerCase() ?? null;
+        if (estadoGeneral && estadosExcluidos.has(estadoGeneral)) {
+          return null;
+        }
+
+        const fechaBase = obtenerFechaBaseCompromiso(evento);
+        if (!fechaBase) {
+          return null;
+        }
+
+        const timestamp = fechaBase.getTime();
+        if (!Number.isFinite(timestamp) || timestamp < limitePasado) {
+          return null;
+        }
+
+        return { evento, fechaBase };
+      })
+      .filter((registro): registro is { evento: Evento; fechaBase: Date } => Boolean(registro))
+      .sort((a, b) => a.fechaBase.getTime() - b.fechaBase.getTime())
+      .slice(0, 6);
+  }, [eventos]);
+
+  const abrirModalEvento = useCallback((evento: Evento) => {
+    setEventoEdicion(evento);
+    setModalEdicionAbierto(true);
+  }, []);
+
+  const cerrarModalEdicion = useCallback(() => {
+    setModalEdicionAbierto(false);
+    setEventoEdicion(null);
   }, []);
 
   useEffect(() => {
-    if (!mostrarModal) {
+    if (!modalEdicionAbierto) {
       return;
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        cerrarModalEvento();
+        cerrarModalEdicion();
       }
     };
 
@@ -692,7 +866,7 @@ export default function InicioPage() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [mostrarModal, cerrarModalEvento]);
+  }, [modalEdicionAbierto, cerrarModalEdicion]);
 
   const manejarClickEvento = useCallback(
     (info: EventClickArg) => {
@@ -703,6 +877,10 @@ export default function InicioPage() {
     },
     [eventos, abrirModalEvento],
   );
+
+  const recargarTodo = useCallback(async () => {
+    await Promise.all([cargarEventos(), cargarDashboard(), cargarNotificaciones()]);
+  }, [cargarDashboard, cargarEventos, cargarNotificaciones]);
 
   const nombreUsuario = dashboard?.nombre ?? "invitado";
   const fechaResumen = capitalizar(dashboard?.fechaLegible ?? intlFechaResumen.format(new Date()));
@@ -873,6 +1051,87 @@ export default function InicioPage() {
         <aside className="space-y-6">
           <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Próximos compromisos</h2>
+              <button
+                type="button"
+                onClick={cargarEventos}
+                className="rounded-lg border border-gray-200 px-3 py-1 text-sm font-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-800/80"
+              >
+                Actualizar
+              </button>
+            </div>
+
+            {cargandoEventos ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Cargando tus próximos eventos...</p>
+            ) : proximosCompromisos.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No hay compromisos próximos en tu agenda.</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {proximosCompromisos.map(({ evento }) => {
+                  const config = CONFIG_COMPROMISO[evento.tipo] ?? CONFIG_COMPROMISO.evento;
+                  const Icono = ICONOS_COMPROMISO[evento.tipo] ?? ICONOS_COMPROMISO.evento;
+                  const descripcion = truncarDescripcion(evento.descripcion);
+                  return (
+                    <li
+                      key={`compromiso-${evento.id}`}
+                      className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900/80 dark:hover:border-gray-700"
+                    >
+                      <div
+                        className={combineClassNames(
+                          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-base",
+                          config.icono,
+                        )}
+                      >
+                        <Icono className="h-5 w-5" />
+                      </div>
+                      <div className="flex flex-1 flex-col gap-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={combineClassNames(
+                                  "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium",
+                                  config.clases,
+                                )}
+                              >
+                                {config.etiqueta}
+                              </span>
+                              {evento.estadoInvitacion === "pendiente" && (
+                                <span className="inline-flex items-center rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-500">
+                                  Invitación pendiente
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                              {evento.titulo?.trim() || "(Sin título)"}
+                            </h3>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => abrirModalEvento(evento)}
+                            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 dark:hover:bg-gray-800/70 dark:hover:text-gray-200 dark:focus-visible:outline-gray-600"
+                            aria-label="Editar evento"
+                          >
+                            <PencilMiniIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{formatearResumenCompromiso(evento)}</p>
+                        {evento.equipoNombre && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Equipo: {evento.equipoNombre}</p>
+                        )}
+                        {descripcion && (
+                          <p className="text-sm text-gray-600 dark:text-gray-300">{descripcion}</p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="mb-4 flex items-center justify-between gap-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Actividad reciente</h2>
               <button
                 type="button"
@@ -1025,70 +1284,12 @@ export default function InicioPage() {
         </aside>
       </div>
 
-      {mostrarModal && eventoSeleccionado && (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 transition-opacity duration-300 ${
-            cerrandoModal ? "opacity-0" : "opacity-100"
-          }`}
-          onClick={cerrarModalEvento}
-        >
-          <div
-            className={`w-full max-w-md transform rounded-2xl bg-white p-6 shadow-xl transition-all duration-300 ease-out dark:bg-gray-950 ${
-              cerrandoModal ? "scale-95 opacity-0" : "scale-100 opacity-100"
-            }`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  {eventoSeleccionado.titulo ?? "(Sin título)"}
-                </h3>
-                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/20 dark:text-blue-200">
-                  <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400" aria-hidden />
-                  {formatearTipoEvento(eventoSeleccionado)}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-4 text-sm text-gray-700 dark:text-gray-300">
-              <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-800/70">
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Inicio</p>
-                <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">{formatearFechaDetallada(eventoSeleccionado.inicio)}</p>
-              </div>
-              <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-800/70">
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Fin</p>
-                <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">{formatearFechaDetallada(eventoSeleccionado.fin)}</p>
-              </div>
-              <div className="rounded-lg border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/80">
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Ubicación</p>
-                <p className="mt-1 text-gray-900 dark:text-gray-100">
-                  {eventoSeleccionado.ubicacion?.trim()
-                    ? eventoSeleccionado.ubicacion
-                    : "No se especificó una ubicación."}
-                </p>
-              </div>
-              <div className="rounded-lg border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/80">
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Descripción</p>
-                <p className="mt-1 whitespace-pre-line text-gray-900 dark:text-gray-100">
-                  {eventoSeleccionado.descripcion?.trim()
-                    ? eventoSeleccionado.descripcion
-                    : "Sin descripción adicional."}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={cerrarModalEvento}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditarEventoModal
+        open={modalEdicionAbierto}
+        evento={eventoEdicion}
+        onClose={cerrarModalEdicion}
+        onRefresh={recargarTodo}
+      />
     </div>
   );
 }

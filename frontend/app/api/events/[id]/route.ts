@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getQuery, runQuery } from "@/lib/db";
 
+type EstadoEvento = "confirmado" | "cancelado" | "tentativo";
+
 interface EventoInternoRow {
   id: number;
   id_usuario: number;
@@ -14,6 +16,7 @@ interface EventoInternoRow {
   tipo: "personal" | "equipo" | "otro";
   recordatorio: number;
   creado_en: string;
+  estado: EstadoEvento;
 }
 
 async function obtenerUsuarioAutenticado(): Promise<number | null> {
@@ -33,7 +36,7 @@ async function obtenerEventoDelUsuario(
   userId: number
 ): Promise<EventoInternoRow | null> {
   const evento = await getQuery<EventoInternoRow>(
-    `SELECT id, id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio, creado_en
+    `SELECT id, id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio, creado_en, estado
      FROM eventos_internos WHERE id = ? AND id_usuario = ?`,
     [id, userId]
   );
@@ -92,6 +95,12 @@ export async function PUT(
       ? Number(body.recordatorio)
       : evento.recordatorio;
 
+    const estadosPermitidos: EstadoEvento[] = ["confirmado", "cancelado", "tentativo"];
+    const estadoBody = typeof body.estado === "string" ? (body.estado as string).trim() : "";
+    const estado = estadosPermitidos.includes(estadoBody as EstadoEvento)
+      ? (estadoBody as EstadoEvento)
+      : evento.estado;
+
     if (!inicio || !fin) {
       return NextResponse.json(
         { error: "Las fechas de inicio y fin son obligatorias" },
@@ -100,7 +109,7 @@ export async function PUT(
     }
 
     await runQuery(
-      "UPDATE eventos_internos SET titulo = ?, descripcion = ?, inicio = ?, fin = ?, ubicacion = ?, tipo = ?, recordatorio = ? WHERE id = ? AND id_usuario = ?",
+      "UPDATE eventos_internos SET titulo = ?, descripcion = ?, inicio = ?, fin = ?, ubicacion = ?, tipo = ?, recordatorio = ?, estado = ? WHERE id = ? AND id_usuario = ?",
       [
         titulo,
         descripcion,
@@ -109,6 +118,7 @@ export async function PUT(
         ubicacion,
         tipo,
         recordatorio,
+        estado,
         eventId,
         userId,
       ]
