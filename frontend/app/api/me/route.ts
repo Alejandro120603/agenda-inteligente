@@ -9,5 +9,11 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
-  return NextResponse.json({ id: user.id, name: user.nombre, email: user.correo });
+  return NextResponse.json({
+    id: user.id,
+    name: user.nombre,
+    email: user.correo,
+    timezone: user.zona_horaria ?? null,
+    themePreference: user.tema_preferencia ?? "auto",
+  });
 }

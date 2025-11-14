@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     correo          VARCHAR(150) UNIQUE NOT NULL,
     password_hash   TEXT NOT NULL,
     zona_horaria    VARCHAR(50) DEFAULT 'America/Mexico_City',
+    tema_preferencia TEXT CHECK(tema_preferencia IN ('light','dark','auto')) DEFAULT 'auto',
     creado_en       DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

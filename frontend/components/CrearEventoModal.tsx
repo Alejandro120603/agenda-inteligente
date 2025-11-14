@@ -246,25 +246,25 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
   return (
     <div className="fixed inset-0 z-40 flex min-h-screen items-center justify-center bg-slate-900/50 px-4 py-6">
       <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+      <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Nuevo registro</p>
-            <h2 className="text-2xl font-bold text-gray-900">Crear evento o tarea</h2>
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">Nuevo registro</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Crear evento o tarea</h2>
           </div>
           <button
             type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             onClick={onClose}
             aria-label="Cerrar"
           >
             ×
           </button>
         </div>
-        <form onSubmit={manejarEnvio} className="space-y-6 px-6 py-6">
+        <form onSubmit={manejarEnvio} className="space-y-6 px-6 py-6 text-gray-900 dark:text-gray-100">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-gray-200 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo</p>
+            <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tipo</p>
               <div className="mt-3 flex gap-2">
                 {["evento", "tarea"].map((opcion) => (
                   <button
@@ -273,20 +273,20 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
                     onClick={() => manejarSeleccionTipo(opcion as TipoBase)}
                     className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                       form.tipoBase === opcion
-                        ? "border-blue-600 bg-blue-50 text-blue-700"
-                        : "border-gray-200 text-gray-600 hover:border-gray-300"
+                        ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200"
+                        : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500"
                     }`}
                   >
                     {opcion === "evento" ? "Evento" : "Tarea"}
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Los eventos se mostrarán con horario. Las tareas aparecerán como actividades de día completo.
               </p>
             </div>
-            <div className="rounded-2xl border border-gray-200 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Alcance</p>
+            <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Alcance</p>
               <div className="mt-3 flex gap-2">
                 {["personal", "equipo"].map((opcion) => (
                   <button
@@ -295,22 +295,22 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
                     onClick={() => manejarSeleccionAlcance(opcion as Alcance)}
                     className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                       form.alcance === opcion
-                        ? "border-blue-600 bg-blue-50 text-blue-700"
-                        : "border-gray-200 text-gray-600 hover:border-gray-300"
+                        ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200"
+                        : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500"
                     }`}
                   >
                     {opcion === "personal" ? "Personal" : "Equipo"}
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Si eliges equipo, se registrará como tarea grupal automáticamente.
               </p>
             </div>
           </div>
 
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="titulo">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="titulo">
               Título
             </label>
             <input
@@ -318,7 +318,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
               name="titulo"
               type="text"
               required
-              className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-base text-gray-900 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-base text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
               placeholder="Ej. Plan de entrega del sprint"
               value={form.titulo}
               onChange={manejarCambio}
@@ -326,13 +326,13 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
           </div>
 
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700" htmlFor="descripcion">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="descripcion">
               Descripción
             </label>
             <textarea
               id="descripcion"
               name="descripcion"
-              className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
               rows={4}
               placeholder="Agrega notas, objetivos o enlaces relevantes"
               value={form.descripcion}
@@ -341,15 +341,15 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3 rounded-2xl border border-gray-200 p-4">
-              <p className="text-sm font-semibold text-gray-700">Inicio</p>
+            <div className="space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Inicio</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   type="date"
                   name="fechaInicio"
                   value={form.fechaInicio}
                   onChange={manejarCambio}
-                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
                   required
                 />
                 <input
@@ -357,20 +357,20 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
                   name="horaInicio"
                   value={form.horaInicio}
                   onChange={manejarCambio}
-                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
                   required
                 />
               </div>
             </div>
-            <div className="space-y-3 rounded-2xl border border-gray-200 p-4">
-              <p className="text-sm font-semibold text-gray-700">Fin</p>
+            <div className="space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Fin</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   type="date"
                   name="fechaFin"
                   value={form.fechaFin}
                   onChange={manejarCambio}
-                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
                   required
                 />
                 <input
@@ -378,7 +378,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
                   name="horaFin"
                   value={form.horaFin}
                   onChange={manejarCambio}
-                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
                   required
                 />
               </div>
@@ -387,7 +387,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
 
           {form.alcance === "equipo" && (
             <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700" htmlFor="equipoId">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="equipoId">
                 Equipo
               </label>
               <select
@@ -396,7 +396,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
                 value={form.equipoId}
                 onChange={manejarCambio}
                 required
-                className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
               >
                 <option value="">Selecciona un equipo</option>
                 {equipos.map((equipo) => (
@@ -405,21 +405,21 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
                   </option>
                 ))}
               </select>
-              {cargandoEquipos && <p className="text-xs text-gray-500">Cargando equipos...</p>}
+              {cargandoEquipos && <p className="text-xs text-gray-500 dark:text-gray-400">Cargando equipos...</p>}
               {!cargandoEquipos && errorEquipos && (
-                <p className="text-xs text-red-600">{errorEquipos}</p>
+                <p className="text-xs text-red-600 dark:text-red-300">{errorEquipos}</p>
               )}
             </div>
           )}
 
           {errorLocal && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
               {errorLocal}
             </div>
           )}
 
-          <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-gray-500">
+          <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {tipoDerivado === "evento"
                 ? "El registro se añadirá como evento con horario."
                 : tipoDerivado === "tarea_grupal"
@@ -429,7 +429,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-2xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                className="rounded-2xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/80"
                 onClick={onClose}
                 disabled={enviando}
               >
@@ -437,7 +437,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
               </button>
               <button
                 type="submit"
-                className="rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-400"
                 disabled={enviando}
               >
                 {enviando ? "Guardando..." : "Guardar"}

@@ -217,14 +217,23 @@ function obtenerTimestamp(item: ItemHoy): number {
 
 function obtenerEtiquetaTipo(item: ItemHoy): { texto: string; clases: string } {
   if (item.tipo === "evento") {
-    return { texto: "Evento", clases: "bg-blue-100 text-blue-700" };
+    return {
+      texto: "Evento",
+      clases: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200",
+    };
   }
 
   if (item.tipo === "tarea_grupal") {
-    return { texto: "Tarea grupal", clases: "bg-purple-100 text-purple-700" };
+    return {
+      texto: "Tarea grupal",
+      clases: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-200",
+    };
   }
 
-  return { texto: "Tarea personal", clases: "bg-emerald-100 text-emerald-700" };
+  return {
+    texto: "Tarea personal",
+    clases: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+  };
 }
 
 function obtenerEtiquetaEstado(notificacion: Notificacion): { texto: string; clases: string } | null {
@@ -233,14 +242,23 @@ function obtenerEtiquetaEstado(notificacion: Notificacion): { texto: string; cla
   }
 
   if (notificacion.estado === "aceptado") {
-    return { texto: "Aceptado", clases: "bg-emerald-100 text-emerald-700" };
+    return {
+      texto: "Aceptado",
+      clases: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+    };
   }
 
   if (notificacion.estado === "rechazado") {
-    return { texto: "Rechazado", clases: "bg-rose-100 text-rose-700" };
+    return {
+      texto: "Rechazado",
+      clases: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+    };
   }
 
-  return { texto: "Pendiente", clases: "bg-gray-100 text-gray-600" };
+  return {
+    texto: "Pendiente",
+    clases: "bg-gray-100 text-gray-600 dark:bg-gray-800/70 dark:text-gray-300",
+  };
 }
 
 function formatearTipoEvento(evento: Evento) {
@@ -756,10 +774,10 @@ export default function InicioPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <header>
-        <h1 className="text-3xl font-semibold mb-1">Hola, {nombreUsuario} 👋</h1>
-        <p className="text-gray-600">
+    <div className="flex flex-col gap-6 p-6 text-gray-900 dark:text-gray-100">
+      <header className="space-y-1">
+        <h1 className="mb-1 text-3xl font-semibold">Hola, {nombreUsuario} 👋</h1>
+        <p className="text-gray-600 dark:text-gray-300">
           Hoy es {fechaResumen}. Tienes {" "}
           <span className="font-medium">{totalTareasHoy}</span> tareas y {" "}
           <span className="font-medium">{totalEventosHoy}</span> eventos para hoy.
@@ -768,17 +786,19 @@ export default function InicioPage() {
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Hoy</h2>
-              {cargandoDashboard && <span className="text-sm text-gray-400">Actualizando...</span>}
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Hoy</h2>
+              {cargandoDashboard && (
+                <span className="text-sm text-gray-400 dark:text-gray-500">Actualizando...</span>
+              )}
             </div>
             {errorDashboard && (
-              <p className="mt-2 text-sm text-rose-600">{errorDashboard}</p>
+              <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">{errorDashboard}</p>
             )}
 
             {!cargandoDashboard && itemsHoy.length === 0 ? (
-              <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-gray-600">
+              <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center text-gray-600 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-300">
                 No tienes eventos ni tareas para hoy 🎉
               </div>
             ) : (
@@ -788,7 +808,7 @@ export default function InicioPage() {
                   return (
                     <li
                       key={item.id}
-                      className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
+                      className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-900 md:flex-row md:items-center md:justify-between"
                     >
                       <div className="flex flex-1 flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
@@ -796,23 +816,23 @@ export default function InicioPage() {
                             {etiqueta.texto}
                           </span>
                           {item.equipoNombre && (
-                            <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                            <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800/70 dark:text-gray-300">
                               Equipo: {item.equipoNombre}
                             </span>
                           )}
                           {item.estadoInvitacion === "pendiente" && (
-                            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-200">
                               Invitación pendiente
                             </span>
                           )}
                         </div>
-                        <p className="text-base font-semibold text-gray-900">{item.titulo}</p>
-                        <p className="text-sm text-gray-600">{formatearHoraItem(item)}</p>
+                        <p className="text-base font-semibold text-gray-900 dark:text-gray-100">{item.titulo}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{formatearHoraItem(item)}</p>
                         {item.creadorNombre && (
-                          <p className="text-xs text-gray-500">Organiza: {item.creadorNombre}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Organiza: {item.creadorNombre}</p>
                         )}
                         {item.descripcion && (
-                          <p className="text-sm text-gray-500">{item.descripcion}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{item.descripcion}</p>
                         )}
                       </div>
                     </li>
@@ -822,15 +842,15 @@ export default function InicioPage() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Calendario interno</h2>
-              <span className="text-sm text-gray-500">Eventos y tareas</span>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Calendario interno</h2>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Eventos y tareas</span>
             </div>
 
             <div className="mt-4">
               {cargandoEventos ? (
-                <p className="text-gray-500">Cargando tus eventos...</p>
+                <p className="text-gray-500 dark:text-gray-400">Cargando tus eventos...</p>
               ) : (
                 <FullCalendar
                   plugins={plugins}
@@ -851,31 +871,31 @@ export default function InicioPage() {
         </div>
 
         <aside className="space-y-6">
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-4 flex items-center justify-between gap-2">
-              <h2 className="text-xl font-semibold">Actividad reciente</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Actividad reciente</h2>
               <button
                 type="button"
                 onClick={cargarNotificaciones}
-                className="rounded-lg border border-gray-200 px-3 py-1 text-sm font-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50"
+                className="rounded-lg border border-gray-200 px-3 py-1 text-sm font-medium text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-800/80"
               >
                 Actualizar
               </button>
             </div>
 
             {errorNotificaciones && (
-              <p className="mb-3 text-sm text-rose-600">{errorNotificaciones}</p>
+              <p className="mb-3 text-sm text-rose-600 dark:text-rose-300">{errorNotificaciones}</p>
             )}
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   Invitaciones pendientes
                 </h3>
                 {cargandoDashboard ? (
-                  <p className="mt-2 text-sm text-gray-500">Revisando invitaciones...</p>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Revisando invitaciones...</p>
                 ) : invitacionesPendientes.length === 0 ? (
-                  <p className="mt-2 text-sm text-gray-500">No tienes invitaciones pendientes.</p>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No tienes invitaciones pendientes.</p>
                 ) : (
                   <ul className="mt-3 space-y-3">
                     {invitacionesPendientes.map((invitacion) => {
@@ -886,18 +906,18 @@ export default function InicioPage() {
                       return (
                         <li
                           key={`invitacion-evento-${invitacion.eventoId}`}
-                          className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm"
+                          className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10"
                         >
                           <div className="flex flex-col gap-2">
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                               {creador} te invitó al evento “{invitacion.titulo}”
                             </p>
                             {invitacion.equipoNombre && (
-                              <span className="text-xs text-gray-600">
+                              <span className="text-xs text-gray-600 dark:text-gray-300">
                                 Equipo: {invitacion.equipoNombre}
                               </span>
                             )}
-                            <span className="text-xs text-gray-600">
+                            <span className="text-xs text-gray-600 dark:text-gray-300">
                               Cuando: {formatearRangoEvento(invitacion.inicio, invitacion.fin)}
                             </span>
                             <div className="mt-2 flex flex-wrap gap-2">
@@ -926,19 +946,19 @@ export default function InicioPage() {
                 )}
               </div>
 
-              <div className="space-y-4 border-t border-gray-200 pt-4">
+              <div className="space-y-4 border-t border-gray-200 pt-4 dark:border-gray-800">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     Actividad
                   </h3>
                   {cargandoNotificaciones && (
-                    <span className="text-xs text-gray-400">Actualizando...</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">Actualizando...</span>
                   )}
                 </div>
                 {cargandoNotificaciones ? (
-                  <p className="text-sm text-gray-500">Cargando actividad...</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Cargando actividad...</p>
                 ) : notificacionesFiltradas.length === 0 ? (
-                  <p className="text-sm text-gray-500">No hay notificaciones recientes.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No hay notificaciones recientes.</p>
                 ) : (
                   <ul className="space-y-4">
                     {notificacionesFiltradas.map((notificacion) => {
@@ -959,11 +979,11 @@ export default function InicioPage() {
                       return (
                         <li
                           key={notificacion.id}
-                          className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                          className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
                         >
                           <div className="flex flex-col gap-2">
-                            <p className="text-sm font-medium text-gray-900">{notificacion.mensaje}</p>
-                            <span className="text-xs text-gray-500">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notificacion.mensaje}</p>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               {formatearFechaNotificacion(notificacion.fecha)}
                             </span>
                             {etiquetaEstado && (
@@ -1013,43 +1033,43 @@ export default function InicioPage() {
           onClick={cerrarModalEvento}
         >
           <div
-            className={`w-full max-w-md transform rounded-2xl bg-white p-6 shadow-xl transition-all duration-300 ease-out ${
+            className={`w-full max-w-md transform rounded-2xl bg-white p-6 shadow-xl transition-all duration-300 ease-out dark:bg-gray-950 ${
               cerrandoModal ? "scale-95 opacity-0" : "scale-100 opacity-100"
             }`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                   {eventoSeleccionado.titulo ?? "(Sin título)"}
                 </h3>
-                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600">
-                  <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden />
+                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/20 dark:text-blue-200">
+                  <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400" aria-hidden />
                   {formatearTipoEvento(eventoSeleccionado)}
                 </span>
               </div>
             </div>
 
-            <div className="mt-6 space-y-4 text-sm text-gray-700">
-              <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-4">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Inicio</p>
-                <p className="mt-1 font-medium text-gray-900">{formatearFechaDetallada(eventoSeleccionado.inicio)}</p>
+            <div className="mt-6 space-y-4 text-sm text-gray-700 dark:text-gray-300">
+              <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-800/70">
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Inicio</p>
+                <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">{formatearFechaDetallada(eventoSeleccionado.inicio)}</p>
               </div>
-              <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-4">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Fin</p>
-                <p className="mt-1 font-medium text-gray-900">{formatearFechaDetallada(eventoSeleccionado.fin)}</p>
+              <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-800/70">
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Fin</p>
+                <p className="mt-1 font-medium text-gray-900 dark:text-gray-100">{formatearFechaDetallada(eventoSeleccionado.fin)}</p>
               </div>
-              <div className="rounded-lg border border-gray-100 bg-white p-4">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Ubicación</p>
-                <p className="mt-1 text-gray-900">
+              <div className="rounded-lg border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/80">
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Ubicación</p>
+                <p className="mt-1 text-gray-900 dark:text-gray-100">
                   {eventoSeleccionado.ubicacion?.trim()
                     ? eventoSeleccionado.ubicacion
                     : "No se especificó una ubicación."}
                 </p>
               </div>
-              <div className="rounded-lg border border-gray-100 bg-white p-4">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Descripción</p>
-                <p className="mt-1 whitespace-pre-line text-gray-900">
+              <div className="rounded-lg border border-gray-100 bg-white p-4 dark:border-gray-700 dark:bg-gray-900/80">
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Descripción</p>
+                <p className="mt-1 whitespace-pre-line text-gray-900 dark:text-gray-100">
                   {eventoSeleccionado.descripcion?.trim()
                     ? eventoSeleccionado.descripcion
                     : "Sin descripción adicional."}
@@ -1061,7 +1081,7 @@ export default function InicioPage() {
               <button
                 type="button"
                 onClick={cerrarModalEvento}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400"
               >
                 Cerrar
               </button>

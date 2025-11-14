@@ -25,7 +25,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       {/* Aplicamos la fuente y colores de fondo base a todo el proyecto. */}
-      <body className={`${inter.className} bg-gray-50 text-gray-900`}>
+      <body
+        className={`${inter.className} bg-gray-50 text-gray-900 transition-colors duration-300 dark:bg-gray-950 dark:text-gray-100`}
+      >
         {/* Renderizamos el contenido específico de cada página o layout anidado. */}
         {children}
       </body>
