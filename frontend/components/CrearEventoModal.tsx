@@ -497,300 +497,306 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
           </button>
         </div>
         <form onSubmit={manejarEnvio} className="flex h-full flex-col text-gray-900 dark:text-gray-100">
-          <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-            <div className="grid gap-4 sm:grid-cols-2">
+          <div
+            className="flex-1 max-h-[85vh] overflow-y-auto overscroll-contain px-6 py-6 scrollbar-thin"
+            onWheel={(evento) => evento.stopPropagation()}
+          >
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tipo</p>
+                  <div className="mt-3 flex gap-2">
+                    {["evento", "tarea"].map((opcion) => (
+                      <button
+                        key={opcion}
+                        type="button"
+                        onClick={() => manejarSeleccionTipo(opcion as TipoBase)}
+                        className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                          form.tipoBase === opcion
+                            ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200"
+                            : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500"
+                        }`}
+                      >
+                        {opcion === "evento" ? "Evento" : "Tarea"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Los eventos se mostrarán con horario. Las tareas aparecerán como actividades de día completo.
+                </p>
+              </div>
+
               <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tipo</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Alcance</p>
                 <div className="mt-3 flex gap-2">
-                  {["evento", "tarea"].map((opcion) => (
+                  {["personal", "equipo"].map((opcion) => (
                     <button
-                    key={opcion}
-                    type="button"
-                    onClick={() => manejarSeleccionTipo(opcion as TipoBase)}
-                    className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                      form.tipoBase === opcion
-                        ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200"
-                        : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500"
-                    }`}
-                  >
-                    {opcion === "evento" ? "Evento" : "Tarea"}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Los eventos se mostrarán con horario. Las tareas aparecerán como actividades de día completo.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Alcance</p>
-              <div className="mt-3 flex gap-2">
-                {["personal", "equipo"].map((opcion) => (
-                  <button
-                    key={opcion}
-                    type="button"
-                    onClick={() => manejarSeleccionAlcance(opcion as Alcance)}
-                    className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                      form.alcance === opcion
-                        ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200"
-                        : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500"
-                    }`}
-                  >
-                    {opcion === "personal" ? "Personal" : "Equipo"}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Si eliges equipo, se registrará como tarea grupal automáticamente.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="titulo">
-              Título
-            </label>
-            <input
-              id="titulo"
-              name="titulo"
-              type="text"
-              required
-              className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-base text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
-              placeholder="Ej. Plan de entrega del sprint"
-              value={form.titulo}
-              onChange={manejarCambio}
-            />
-          </div>
-
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="descripcion">
-              Descripción
-            </label>
-            <textarea
-              id="descripcion"
-              name="descripcion"
-              className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
-              rows={4}
-              placeholder="Agrega notas, objetivos o enlaces relevantes"
-              value={form.descripcion}
-              onChange={manejarCambio}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Inicio</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  type="date"
-                  name="fechaInicio"
-                  value={form.fechaInicio}
-                  onChange={manejarCambio}
-                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
-                  required
-                />
-                <input
-                  type="time"
-                  name="horaInicio"
-                  value={form.horaInicio}
-                  onChange={manejarCambio}
-                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Fin</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  type="date"
-                  name="fechaFin"
-                  value={form.fechaFin}
-                  onChange={manejarCambio}
-                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
-                  required
-                />
-                <input
-                  type="time"
-                  name="horaFin"
-                  value={form.horaFin}
-                  onChange={manejarCambio}
-                  className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {form.alcance === "equipo" && (
-            <div className="space-y-6 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="equipoId">
-                  Equipo
-                </label>
-                <select
-                  id="equipoId"
-                  name="equipoId"
-                  value={form.equipoId}
-                  onChange={manejarCambio}
-                  required
-                  className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
-                >
-                  <option value="">Selecciona un equipo</option>
-                  {equipos.map((equipo) => (
-                    <option key={equipo.id} value={equipo.id}>
-                      {equipo.nombre}
-                    </option>
+                      key={opcion}
+                      type="button"
+                      onClick={() => manejarSeleccionAlcance(opcion as Alcance)}
+                      className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                        form.alcance === opcion
+                          ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-600 dark:text-gray-300 dark:hover:border-gray-500"
+                      }`}
+                    >
+                      {opcion === "personal" ? "Personal" : "Equipo"}
+                    </button>
                   ))}
-                </select>
-                {cargandoEquipos && <p className="text-xs text-gray-500 dark:text-gray-400">Cargando equipos...</p>}
-                {!cargandoEquipos && errorEquipos && (
-                  <p className="text-xs text-red-600 dark:text-red-300">{errorEquipos}</p>
-                )}
+                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Si eliges equipo, se registrará como tarea grupal automáticamente.
+                </p>
               </div>
 
-              <div className="space-y-4 rounded-2xl border border-dashed border-gray-200 p-4 dark:border-gray-600">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <label className="flex items-start gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900/70"
-                      checked={autoHorario.habilitado}
-                      onChange={(evento) => manejarToggleAutoHorario(evento.target.checked)}
-                    />
-                    <span>
-                      Encontrar horario automáticamente
-                      <span className="mt-1 block text-xs font-normal text-gray-500 dark:text-gray-400">
-                        Busca el mejor horario disponible para todo el equipo dentro del rango indicado.
-                      </span>
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void manejarBusquedaDisponibilidad();
-                    }}
-                    disabled={!autoHorario.habilitado || !form.equipoId || buscandoDisponibilidad}
-                    className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-400"
-                  >
-                    {buscandoDisponibilidad ? "Buscando..." : "Buscar disponibilidad"}
-                  </button>
-                </div>
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="titulo">
+                  Título
+                </label>
+                <input
+                  id="titulo"
+                  name="titulo"
+                  type="text"
+                  required
+                  className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-base text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
+                  placeholder="Ej. Plan de entrega del sprint"
+                  value={form.titulo}
+                  onChange={manejarCambio}
+                />
+              </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Hora inicio deseada
-                    </p>
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="descripcion">
+                  Descripción
+                </label>
+                <textarea
+                  id="descripcion"
+                  name="descripcion"
+                  className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
+                  rows={4}
+                  placeholder="Agrega notas, objetivos o enlaces relevantes"
+                  value={form.descripcion}
+                  onChange={manejarCambio}
+                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Inicio</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <input
-                      id="auto-hora-inicio"
-                      type="time"
-                      value={autoHorario.horaInicio}
-                      onChange={(evento) => manejarCambioAutoCampo("horaInicio", evento.target.value)}
-                      disabled={!autoHorario.habilitado}
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                      type="date"
+                      name="fechaInicio"
+                      value={form.fechaInicio}
+                      onChange={manejarCambio}
+                      className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                      required
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Hora fin deseada
-                    </p>
                     <input
-                      id="auto-hora-fin"
                       type="time"
-                      value={autoHorario.horaFin}
-                      onChange={(evento) => manejarCambioAutoCampo("horaFin", evento.target.value)}
-                      disabled={!autoHorario.habilitado}
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Duración (minutos)
-                    </p>
-                    <input
-                      id="auto-duracion"
-                      type="number"
-                      min={15}
-                      step={15}
-                      value={autoHorario.duracion}
-                      onChange={(evento) => manejarCambioAutoCampo("duracion", evento.target.value)}
-                      disabled={!autoHorario.habilitado}
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                      name="horaInicio"
+                      value={form.horaInicio}
+                      onChange={manejarCambio}
+                      className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                      required
                     />
                   </div>
                 </div>
+                <div className="space-y-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Fin</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input
+                      type="date"
+                      name="fechaFin"
+                      value={form.fechaFin}
+                      onChange={manejarCambio}
+                      className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                      required
+                    />
+                    <input
+                      type="time"
+                      name="horaFin"
+                      value={form.horaFin}
+                      onChange={manejarCambio}
+                      className="rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
 
-                {errorDisponibilidad && (
-                  <p className="text-xs text-red-600 dark:text-red-300">{errorDisponibilidad}</p>
-                )}
-
-                {resultadoDisponibilidad && (
-                  <div className="space-y-3 rounded-2xl bg-gray-50 p-4 text-sm dark:bg-gray-900/60">
-                    {resultadoDisponibilidad.slots.length > 0 ? (
-                      <div className="space-y-2">
-                        <p className="font-semibold text-green-600 dark:text-green-400">
-                          Se encontraron horarios donde todo el equipo está disponible:
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {resultadoDisponibilidad.slots.map((slot) => (
-                            <span
-                              key={slot}
-                              className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-500/20 dark:text-green-200"
-                            >
-                              {formatearSlotLegible(slot)}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : resultadoDisponibilidad.best ? (
-                      <p className="font-medium text-amber-600 dark:text-amber-300">
-                        ⚠️ No existe un horario donde todos estén disponibles. Se sugiere el siguiente horario óptimo:
-                        {" "}
-                        <span className="font-semibold">
-                          {formatearSlotLegible(resultadoDisponibilidad.best)}
-                        </span>
-                      </p>
-                    ) : (
-                      <p className="font-medium text-amber-600 dark:text-amber-300">
-                        ⚠️ No se encontraron horarios disponibles en el rango indicado.
-                      </p>
+              {form.alcance === "equipo" && (
+                <div className="space-y-6 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="equipoId">
+                      Equipo
+                    </label>
+                    <select
+                      id="equipoId"
+                      name="equipoId"
+                      value={form.equipoId}
+                      onChange={manejarCambio}
+                      required
+                      className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
+                    >
+                      <option value="">Selecciona un equipo</option>
+                      {equipos.map((equipo) => (
+                        <option key={equipo.id} value={equipo.id}>
+                          {equipo.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    {cargandoEquipos && <p className="text-xs text-gray-500 dark:text-gray-400">Cargando equipos...</p>}
+                    {!cargandoEquipos && errorEquipos && (
+                      <p className="text-xs text-red-600 dark:text-red-300">{errorEquipos}</p>
                     )}
+                  </div>
 
-                    {resultadoDisponibilidad.score.length > 0 && (
+                  <div className="space-y-4 rounded-2xl border border-dashed border-gray-200 p-4 dark:border-gray-600">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <label className="flex items-start gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900/70"
+                          checked={autoHorario.habilitado}
+                          onChange={(evento) => manejarToggleAutoHorario(evento.target.checked)}
+                        />
+                        <span>
+                          Encontrar horario automáticamente
+                          <span className="mt-1 block text-xs font-normal text-gray-500 dark:text-gray-400">
+                            Busca el mejor horario disponible para todo el equipo dentro del rango indicado.
+                          </span>
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void manejarBusquedaDisponibilidad();
+                        }}
+                        disabled={!autoHorario.habilitado || !form.equipoId || buscandoDisponibilidad}
+                        className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-400"
+                      >
+                        {buscandoDisponibilidad ? "Buscando..." : "Buscar disponibilidad"}
+                      </button>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <div className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Disponibilidad por horario
+                          Hora inicio deseada
                         </p>
-                        <ul className="space-y-2">
-                          {resultadoDisponibilidad.score.map((item) => (
-                            <li
-                              key={item.slot}
-                              className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${
-                                item.slot === resultadoDisponibilidad.best
-                                  ? "border-blue-500/60 bg-blue-50 text-blue-700 dark:border-blue-400/60 dark:bg-blue-500/10 dark:text-blue-200"
-                                  : "border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200"
-                              }`}
-                            >
-                              <span>{formatearSlotLegible(item.slot)}</span>
-                              <span className="font-semibold">
-                                {item.available} / {item.total} disponibles
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                        <input
+                          id="auto-hora-inicio"
+                          type="time"
+                          value={autoHorario.horaInicio}
+                          onChange={(evento) => manejarCambioAutoCampo("horaInicio", evento.target.value)}
+                          disabled={!autoHorario.habilitado}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Hora fin deseada
+                        </p>
+                        <input
+                          id="auto-hora-fin"
+                          type="time"
+                          value={autoHorario.horaFin}
+                          onChange={(evento) => manejarCambioAutoCampo("horaFin", evento.target.value)}
+                          disabled={!autoHorario.habilitado}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Duración (minutos)
+                        </p>
+                        <input
+                          id="auto-duracion"
+                          type="number"
+                          min={15}
+                          step={15}
+                          value={autoHorario.duracion}
+                          onChange={(evento) => manejarCambioAutoCampo("duracion", evento.target.value)}
+                          disabled={!autoHorario.habilitado}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                        />
+                      </div>
+                    </div>
+
+                    {errorDisponibilidad && (
+                      <p className="text-xs text-red-600 dark:text-red-300">{errorDisponibilidad}</p>
+                    )}
+
+                    {resultadoDisponibilidad && (
+                      <div className="space-y-3 rounded-2xl bg-gray-50 p-4 text-sm dark:bg-gray-900/60">
+                        {resultadoDisponibilidad.slots.length > 0 ? (
+                          <div className="space-y-2">
+                            <p className="font-semibold text-green-600 dark:text-green-400">
+                              Se encontraron horarios donde todo el equipo está disponible:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {resultadoDisponibilidad.slots.map((slot) => (
+                                <span
+                                  key={slot}
+                                  className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-500/20 dark:text-green-200"
+                                >
+                                  {formatearSlotLegible(slot)}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : resultadoDisponibilidad.best ? (
+                          <p className="font-medium text-amber-600 dark:text-amber-300">
+                            ⚠️ No existe un horario donde todos estén disponibles. Se sugiere el siguiente horario óptimo:
+                            {" "}
+                            <span className="font-semibold">
+                              {formatearSlotLegible(resultadoDisponibilidad.best)}
+                            </span>
+                          </p>
+                        ) : (
+                          <p className="font-medium text-amber-600 dark:text-amber-300">
+                            ⚠️ No se encontraron horarios disponibles en el rango indicado.
+                          </p>
+                        )}
+
+                        {resultadoDisponibilidad.score.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                              Disponibilidad por horario
+                            </p>
+                            <ul className="space-y-2">
+                              {resultadoDisponibilidad.score.map((item) => (
+                                <li
+                                  key={item.slot}
+                                  className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${
+                                    item.slot === resultadoDisponibilidad.best
+                                      ? "border-blue-500/60 bg-blue-50 text-blue-700 dark:border-blue-400/60 dark:bg-blue-500/10 dark:text-blue-200"
+                                      : "border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200"
+                                  }`}
+                                >
+                                  <span>{formatearSlotLegible(item.slot)}</span>
+                                  <span className="font-semibold">
+                                    {item.available} / {item.total} disponibles
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+                </div>
+              )}
 
-            {errorLocal && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-                {errorLocal}
-              </div>
-            )}
+              {errorLocal && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                  {errorLocal}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex shrink-0 flex-col gap-3 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
