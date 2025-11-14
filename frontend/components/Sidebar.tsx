@@ -41,12 +41,12 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 text-xs text-indigo-900 transition dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
-        <p className="font-semibold text-indigo-700 dark:text-white">Sincroniza tu agenda</p>
-        <p className="mt-1 text-indigo-600 dark:text-gray-300">
+      <div className="mt-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 text-xs text-indigo-900 transition dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-gray-100">
+        <p className="font-semibold text-indigo-700 dark:text-indigo-200">Sincroniza tu agenda</p>
+        <p className="mt-1 text-indigo-600 dark:text-indigo-200/90">
           Conecta tus cuentas para mantener tus eventos siempre actualizados.
         </p>
-        <button className="mt-4 inline-flex items-center justify-center rounded-lg bg-indigo-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-400">
+        <button className="mt-4 inline-flex items-center justify-center rounded-lg bg-indigo-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400">
           Conectar ahora
         </button>
       </div>

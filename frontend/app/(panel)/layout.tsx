@@ -18,7 +18,7 @@ export default async function PanelLayout({
 
   return (
     <ThemeProvider initialPreference={user?.tema_preferencia ?? "auto"}>
-      <div className="flex min-h-screen w-full bg-gray-50 transition-colors duration-300 dark:bg-gray-950">
+      <div className="flex min-h-screen w-full bg-gray-50 text-gray-900 transition-colors duration-300 dark:bg-gray-950 dark:text-gray-100">
         {/* Sidebar lateral */}
         <Sidebar />
 
