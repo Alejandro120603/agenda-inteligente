@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import "../styles/globals.css";
 import "../styles/theme.css";
+import ServiceWorkerRegistrar from "../components/ServiceWorkerRegistrar";
 
 // Inicializamos la fuente Inter para tener una tipografía consistente en toda la aplicación.
 const inter = Inter({ subsets: ["latin"], display: "swap" });
@@ -11,6 +12,8 @@ const inter = Inter({ subsets: ["latin"], display: "swap" });
 export const metadata: Metadata = {
   title: "Agenda Inteligente",
   description: "Dashboard principal de Agenda Inteligente",
+  manifest: "/manifest.json",
+  themeColor: "#0f172a",
 };
 
 // Este layout raíz solo envuelve la aplicación con las etiquetas <html> y <body>.
@@ -30,6 +33,7 @@ export default function RootLayout({
       >
         {/* Renderizamos el contenido específico de cada página o layout anidado. */}
         {children}
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );
