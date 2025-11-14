@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     correo          VARCHAR(150) UNIQUE NOT NULL,
     password_hash   TEXT NOT NULL,
     zona_horaria    VARCHAR(50) DEFAULT 'America/Mexico_City',
+    tema_preferencia TEXT CHECK(tema_preferencia IN ('light','dark','auto')) DEFAULT 'auto',
     creado_en       DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -65,14 +66,18 @@ CREATE TABLE IF NOT EXISTS equipos (
 -- 5. Tabla: miembros_equipo
 -- ============================================================
 CREATE TABLE IF NOT EXISTS miembros_equipo (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_equipo   INTEGER NOT NULL,
-    id_usuario  INTEGER NOT NULL,
-    rol         TEXT CHECK(rol IN ('administrador','miembro')) DEFAULT 'miembro',
-    unido_en    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_equipo       INTEGER NOT NULL,
+    id_usuario      INTEGER NOT NULL,
+    rol             TEXT CHECK(rol IN ('administrador','miembro')) DEFAULT 'miembro',
+    estado          TEXT CHECK(estado IN ('pendiente','aceptado','rechazado')) DEFAULT 'pendiente',
+    invitado_por    INTEGER,  -- quién envió la invitación
+    invitado_en     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    respondido_en   DATETIME,
     FOREIGN KEY (id_equipo) REFERENCES equipos(id) ON DELETE CASCADE,
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
-    UNIQUE (id_equipo, id_usuario)  -- Evita duplicar miembros
+    FOREIGN KEY (invitado_por) REFERENCES usuarios(id) ON DELETE SET NULL,
+    UNIQUE (id_equipo, id_usuario)
 );
 
 -- ============================================================
@@ -112,6 +117,7 @@ CREATE TABLE IF NOT EXISTS participantes_reunion (
 CREATE INDEX IF NOT EXISTS idx_cuentas_usuario      ON cuentas_conectadas(id_usuario);
 CREATE INDEX IF NOT EXISTS idx_eventos_cuenta       ON eventos_externos(id_cuenta);
 CREATE INDEX IF NOT EXISTS idx_miembros_equipo      ON miembros_equipo(id_equipo);
+CREATE INDEX IF NOT EXISTS idx_miembros_equipo_usuario ON miembros_equipo(id_usuario);
 CREATE INDEX IF NOT EXISTS idx_reuniones_equipo     ON reuniones_propuestas(id_equipo);
 CREATE INDEX IF NOT EXISTS idx_participantes_reunion ON participantes_reunion(id_reunion);
 
@@ -123,6 +129,7 @@ CREATE INDEX IF NOT EXISTS idx_participantes_reunion ON participantes_reunion(id
 CREATE TABLE IF NOT EXISTS eventos_internos (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     id_usuario      INTEGER NOT NULL,
+    id_equipo       INTEGER,
     titulo          VARCHAR(255) NOT NULL,
     descripcion     TEXT,
     inicio          DATETIME NOT NULL,
@@ -131,5 +138,39 @@ CREATE TABLE IF NOT EXISTS eventos_internos (
     tipo            TEXT CHECK(tipo IN ('personal','equipo','otro')) DEFAULT 'personal',
     recordatorio    INTEGER DEFAULT 0,  -- minutos antes del evento
     creado_en       DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_equipo) REFERENCES equipos(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS participantes_evento_interno (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_evento         INTEGER NOT NULL,
+    id_usuario        INTEGER NOT NULL,
+    estado_asistencia TEXT CHECK(estado_asistencia IN ('pendiente','aceptado','rechazado')) DEFAULT 'pendiente',
+    invitado_en       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    respondido_en     DATETIME,
+    FOREIGN KEY (id_evento) REFERENCES eventos_internos(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
+    UNIQUE (id_evento, id_usuario)
+);
+
+-- ============================================================
+-- 8. Tabla: tareas internas
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tareas (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_usuario   INTEGER NOT NULL,
+    id_equipo    INTEGER,
+    titulo       VARCHAR(255) NOT NULL,
+    descripcion  TEXT,
+    fecha        DATE NOT NULL,
+    es_grupal    INTEGER NOT NULL DEFAULT 0,
+    tipo         TEXT CHECK(tipo IN ('tarea_personal','tarea_grupal')) DEFAULT 'tarea_personal',
+    completada   INTEGER NOT NULL DEFAULT 0,
+    creado_en    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_equipo) REFERENCES equipos(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_tareas_usuario ON tareas(id_usuario);
+CREATE INDEX IF NOT EXISTS idx_tareas_equipo ON tareas(id_equipo);
