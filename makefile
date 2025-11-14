@@ -1,6 +1,6 @@
 DB_PATH := data/app.db
 
-.PHONY: db-init db-open db-clean db-dump db-backup help
+.PHONY: db-init db-open db-clean db-dump db-backup help ngrok
 
 help: ## Show available commands
 	@echo "Commands:"; grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/: ##/' | awk 'BEGIN {FS="##"}; {printf "  %-20s %s\n", $$1, $$2}'
@@ -30,3 +30,15 @@ db-backup: ## Save a timestamped backup in ./data/backups/
 	@ts=$$(date +"%Y-%m-%d_%H%M%S"); \
 	cp $(DB_PATH) data/backups/app_$$ts.sqlite && \
 	echo "💾 Backup: data/backups/app_$$ts.sqlite"
+
+# ===========================
+# NGROK
+# ===========================
+
+# Puerto donde corre tu servidor local
+PORT ?= 3000
+
+# Comando para iniciar ngrok
+ngrok: ## Iniciar túnel ngrok
+	@echo "Iniciando ngrok en http://localhost:$(PORT)..."
+	ngrok http $(PORT)

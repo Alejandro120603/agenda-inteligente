@@ -121,7 +121,7 @@ const formatearFechaSimple = (fecha: string | null) => {
 const legendItems = [
   { label: "Eventos", color: "#3b82f6" },
   { label: "Tareas personales", color: "#22c55e" },
-  { label: "Tareas grupales", color: "#a855f7" },
+  { label: "Eventos grupales", color: "#a855f7" },
 ];
 
 const CalendarioUnificadoPage = () => {
@@ -256,7 +256,7 @@ const CalendarioUnificadoPage = () => {
     <>
       <div className="flex flex-1 flex-col gap-6 text-gray-900 dark:text-gray-100">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Calendario unificado de eventos y tareas</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Eventos y tareas</h1>
         <p className="text-gray-600 dark:text-gray-300">
           Consulta de un vistazo tus eventos, tareas personales y tareas grupales en un mismo calendario.
         </p>
