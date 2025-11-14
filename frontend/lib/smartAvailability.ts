@@ -60,6 +60,12 @@ export async function getEventsForUserInRange(
   startIso: string,
   endIso: string
 ): Promise<BusyInterval[]> {
+  const rangeStart = new Date(startIso);
+  const rangeEnd = new Date(endIso);
+  const rangeStartMs = rangeStart.getTime();
+  const rangeEndMs = rangeEnd.getTime();
+  const clampToRange = !Number.isNaN(rangeStartMs) && !Number.isNaN(rangeEndMs);
+
   const eventos = await db.all<EventoIntervalRow>(
     `SELECT e.inicio AS inicio, e.fin AS fin
        FROM eventos_internos e
@@ -82,11 +88,25 @@ export async function getEventsForUserInRange(
     }
 
     const finMs = evento.fin ? new Date(evento.fin).getTime() : null;
-    const endMs = ensurePositiveEnd(inicioMs, finMs);
+    const positiveEnd = ensurePositiveEnd(inicioMs, finMs);
+    const normalizedStart = Math.floor(inicioMs / MINUTE_IN_MS) * MINUTE_IN_MS;
+    const normalizedEnd = Math.ceil(positiveEnd / MINUTE_IN_MS) * MINUTE_IN_MS;
+
+    let intervalStart = normalizedStart;
+    let intervalEnd = Math.max(normalizedEnd, intervalStart + MINUTE_IN_MS);
+
+    if (clampToRange) {
+      intervalStart = Math.max(intervalStart, rangeStartMs);
+      intervalEnd = Math.min(intervalEnd, rangeEndMs);
+    }
+
+    if (intervalEnd <= intervalStart) {
+      continue;
+    }
 
     intervals.push({
-      start: inicioMs,
-      end: endMs,
+      start: intervalStart,
+      end: intervalEnd,
       source: "evento",
     });
   }
@@ -117,10 +137,27 @@ export function generateTimeSlots(
     return [];
   }
 
+  const normalizedStart = new Date(startMs);
+  normalizedStart.setSeconds(0, 0);
+
+  const minutesFromMidnight = normalizedStart.getHours() * 60 + normalizedStart.getMinutes();
+  const remainder = minutesFromMidnight % durationMinutes;
+  if (remainder !== 0) {
+    normalizedStart.setMinutes(normalizedStart.getMinutes() + (durationMinutes - remainder));
+  }
+
+  let cursor = normalizedStart.getTime();
+  while (cursor < startMs) {
+    cursor += durationMs;
+  }
+
   const slots: string[] = [];
 
-  for (let cursor = startMs; cursor + durationMs <= endMs; cursor += durationMs) {
-    slots.push(formatLocalDateTime(new Date(cursor)));
+  for (let current = cursor; current + durationMs <= endMs; current += durationMs) {
+    const slotDate = new Date(current);
+    slotDate.setSeconds(0, 0);
+    slotDate.setMilliseconds(0);
+    slots.push(formatLocalDateTime(slotDate));
   }
 
   return slots;
