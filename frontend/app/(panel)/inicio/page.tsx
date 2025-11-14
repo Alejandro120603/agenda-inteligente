@@ -954,7 +954,7 @@ export default function InicioPage() {
   return (
     <div className="flex flex-col gap-6 p-6 text-gray-900 dark:text-gray-100">
       <header className="space-y-1">
-        <h1 className="mb-1 text-3xl font-semibold">Hola, {nombreUsuario} 👋</h1>
+        <h1 className="mb-1 text-3xl font-semibold">Hola, {nombreUsuario} </h1>
         <p className="text-gray-600 dark:text-gray-300">
           Hoy es {fechaResumen}. Tienes {" "}
           <span className="font-medium">{totalTareasHoy}</span> tareas y {" "}
