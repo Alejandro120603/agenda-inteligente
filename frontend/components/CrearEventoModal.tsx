@@ -388,7 +388,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
     form.fechaInicio,
   ]);
 
-  const manejarEnvio = async (event: FormEvent<HTMLFormElement>) => {
+  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const titulo = form.titulo.trim();
@@ -465,7 +465,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
       await onCreated(mensaje);
       restablecerFormulario();
     } catch (error) {
-      console.error("[CrearEventoModal] manejarEnvio", error);
+      console.error("[CrearEventoModal] handleCreate", error);
       const mensaje = error instanceof Error ? error.message : "Ocurrió un error inesperado";
       setErrorLocal(mensaje);
       onError(mensaje);
@@ -496,7 +496,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
             ×
           </button>
         </div>
-        <form onSubmit={manejarEnvio} className="flex h-full flex-col text-gray-900 dark:text-gray-100">
+        <form onSubmit={handleCreate} className="flex h-full flex-col text-gray-900 dark:text-gray-100">
           <div
             className="flex-1 max-h-[85vh] overflow-y-auto overscroll-contain px-6 py-6 scrollbar-thin"
             onWheel={(evento) => evento.stopPropagation()}
@@ -821,7 +821,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
                 className="rounded-2xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-400"
                 disabled={enviando}
               >
-                {enviando ? "Guardando..." : "Guardar"}
+                {enviando ? "Creando..." : "Crear"}
               </button>
             </div>
           </div>
