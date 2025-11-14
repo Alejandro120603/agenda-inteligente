@@ -56,7 +56,7 @@ Consulta la documentación detallada de los endpoints en el código fuente dentr
 
 3. **Renderizado del saludo en `/inicio`**
    - El componente cliente `frontend/app/(panel)/inicio/page.tsx` llama a `/api/user` cuando se monta.
-   - Con una sesión activa muestra `Hola, {name} 👋`; si la petición responde `401/404` mantiene el fallback `Hola, invitado 👋`.
+   - Con una sesión activa muestra `Hola, {name} `; si la petición responde `401/404` mantiene el fallback `Hola, invitado `.
 
 ### Ejemplos de solicitudes/respuestas
 

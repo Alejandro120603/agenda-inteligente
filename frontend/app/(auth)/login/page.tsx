@@ -137,12 +137,6 @@ export default function LoginPage() {
 
         <div className="login-footer">
           <p>
-            ¿Olvidaste tu contraseña?{" "}
-            <a href="#" className="login-link">
-              Recuperar
-            </a>
-          </p>
-          <p>
             ¿Aún no tienes cuenta?{" "}
             <Link href="/register" className="login-link">
               Crear cuenta
