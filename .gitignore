@@ -16,6 +16,7 @@ backups/
 # Environment files
 .env
 .env.*
+!.env.multiplatform.example
 .env.local
 frontend/.env
 frontend/.env.*

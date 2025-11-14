@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/1",
+  "package": {
+    "productName": "Agenda Inteligente",
+    "version": "0.1.0"
+  },
+  "build": {
+    "beforeBuildCommand": "",
+    "beforeDevCommand": "",
+    "devPath": "$env/DESKTOP_SERVER_URL",
+    "distDir": "../src"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "http": {
+        "all": true
+      },
+      "shell": {
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "identifier": "com.agenda.inteligente.desktop"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "Agenda Inteligente",
+        "width": 1280,
+        "height": 720,
+        "resizable": true,
+        "url": "$env/DESKTOP_SERVER_URL"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}
