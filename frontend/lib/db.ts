@@ -50,6 +50,15 @@ function initializeTeamSchema(database: SqliteDatabase) {
     );
 
     database.run(
+      "ALTER TABLE usuarios ADD COLUMN tema_preferencia TEXT CHECK(tema_preferencia IN ('light','dark','auto')) DEFAULT 'auto'",
+      (error) => {
+        if (error && !String(error.message).includes("duplicate column name")) {
+          console.error("[DB] Error agregando columna tema_preferencia en usuarios", error);
+        }
+      }
+    );
+
+    database.run(
       `CREATE TABLE IF NOT EXISTS miembros_equipo (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         id_equipo INTEGER NOT NULL,
@@ -237,6 +246,8 @@ export function allQuery<T>(sql: string, params: unknown[] = []) {
 }
 
 //
+export type ThemePreference = "light" | "dark" | "auto";
+
 // --- INTERFACES ---
 export interface UsuarioRow {
   id: number;
@@ -244,6 +255,7 @@ export interface UsuarioRow {
   correo: string;
   password_hash: string; // ✅ columna actualizada
   zona_horaria?: string | null;
+  tema_preferencia?: ThemePreference | null;
   creado_en?: string;
 }
 
@@ -252,6 +264,7 @@ export interface PublicUser {
   nombre: string;
   correo: string;
   zona_horaria?: string | null;
+  tema_preferencia?: ThemePreference | null;
 }
 
 //
@@ -260,7 +273,16 @@ export async function getUserById(
   id: number
 ): Promise<PublicUser | undefined> {
   return getQuery<PublicUser>(
-    "SELECT id, nombre, correo, zona_horaria FROM usuarios WHERE id = ?",
+    "SELECT id, nombre, correo, zona_horaria, tema_preferencia FROM usuarios WHERE id = ?",
+    [id]
+  );
+}
+
+export async function getUserRowById(
+  id: number
+): Promise<UsuarioRow | undefined> {
+  return getQuery<UsuarioRow>(
+    "SELECT id, nombre, correo, password_hash, zona_horaria, tema_preferencia, creado_en FROM usuarios WHERE id = ?",
     [id]
   );
 }
@@ -271,7 +293,7 @@ export async function getUserByEmail(
   if (!correo) return undefined;
 
   return getQuery<UsuarioRow>(
-    "SELECT id, nombre, correo, password_hash, zona_horaria, creado_en FROM usuarios WHERE correo = ?",
+    "SELECT id, nombre, correo, password_hash, zona_horaria, tema_preferencia, creado_en FROM usuarios WHERE correo = ?",
     [correo]
   );
 }
@@ -301,4 +323,27 @@ export async function createUser(
   if (!user) throw new Error("No se pudo recuperar el usuario insertado");
 
   return user;
+}
+
+export async function updateUserProfile(
+  id: number,
+  nombre: string,
+  temaPreferencia: ThemePreference
+) {
+  if (!nombre) {
+    throw new Error("El nombre es obligatorio");
+  }
+
+  return runQuery(
+    "UPDATE usuarios SET nombre = ?, tema_preferencia = ? WHERE id = ?",
+    [nombre, temaPreferencia, id]
+  );
+}
+
+export async function updateUserPasswordHash(id: number, passwordHash: string) {
+  if (!passwordHash) {
+    throw new Error("El hash de la contraseña es obligatorio");
+  }
+
+  return runQuery("UPDATE usuarios SET password_hash = ? WHERE id = ?", [passwordHash, id]);
 }
