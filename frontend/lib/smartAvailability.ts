@@ -1,8 +1,6 @@
 import { db } from "./db";
 
 const MINUTE_IN_MS = 60 * 1000;
-const DAY_IN_MS = 24 * 60 * MINUTE_IN_MS;
-
 export interface TeamMember {
   id: number;
   nombre: string;
@@ -12,18 +10,12 @@ export interface TeamMember {
 export interface BusyInterval {
   start: number;
   end: number;
-  source: "evento" | "tarea";
+  source: "evento";
 }
 
 interface EventoIntervalRow {
   inicio: string;
   fin: string | null;
-}
-
-interface TareaIntervalRow {
-  fecha: string | null;
-  es_grupal: number | null;
-  id_equipo: number | null;
 }
 
 export interface AvailabilityScore {
@@ -79,16 +71,6 @@ export async function getEventsForUserInRange(
     [userId, userId, endIso, startIso]
   );
 
-  const tareas = await db.all<TareaIntervalRow>(
-    `SELECT t.fecha AS fecha, t.es_grupal AS es_grupal, t.id_equipo AS id_equipo
-       FROM tareas t
-       LEFT JOIN miembros_equipo me
-         ON me.id_equipo = t.id_equipo AND me.id_usuario = ? AND me.estado = 'aceptado'
-      WHERE (t.id_usuario = ? OR (t.es_grupal = 1 AND me.id IS NOT NULL))
-        AND date(t.fecha) BETWEEN date(?) AND date(?)`,
-    [userId, userId, startIso, endIso]
-  );
-
   const intervals: BusyInterval[] = [];
 
   for (const evento of eventos) {
@@ -106,25 +88,6 @@ export async function getEventsForUserInRange(
       start: inicioMs,
       end: endMs,
       source: "evento",
-    });
-  }
-
-  for (const tarea of tareas) {
-    if (!tarea.fecha) {
-      continue;
-    }
-
-    const inicio = new Date(`${tarea.fecha}T00:00:00`);
-    const inicioMs = inicio.getTime();
-
-    if (Number.isNaN(inicioMs)) {
-      continue;
-    }
-
-    intervals.push({
-      start: inicioMs,
-      end: inicioMs + DAY_IN_MS,
-      source: "tarea",
     });
   }
 
