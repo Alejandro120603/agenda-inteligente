@@ -481,7 +481,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
   return (
     <div className="fixed inset-0 z-40 flex min-h-screen items-center justify-center bg-slate-900/50 px-4 py-6">
       <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950">
+      <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-gray-950 max-h-[90vh]">
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">Nuevo registro</p>
@@ -496,13 +496,14 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
             ×
           </button>
         </div>
-        <form onSubmit={manejarEnvio} className="space-y-6 px-6 py-6 text-gray-900 dark:text-gray-100">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tipo</p>
-              <div className="mt-3 flex gap-2">
-                {["evento", "tarea"].map((opcion) => (
-                  <button
+        <form onSubmit={manejarEnvio} className="flex h-full flex-col text-gray-900 dark:text-gray-100">
+          <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tipo</p>
+                <div className="mt-3 flex gap-2">
+                  {["evento", "tarea"].map((opcion) => (
+                    <button
                     key={opcion}
                     type="button"
                     onClick={() => manejarSeleccionTipo(opcion as TipoBase)}
@@ -785,13 +786,14 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
             </div>
           )}
 
-          {errorLocal && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-              {errorLocal}
-            </div>
-          )}
+            {errorLocal && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                {errorLocal}
+              </div>
+            )}
+          </div>
 
-          <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
+          <div className="flex shrink-0 flex-col gap-3 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {tipoDerivado === "evento"
                 ? "El registro se añadirá como evento con horario."
