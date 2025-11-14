@@ -13,10 +13,11 @@ import {
 export type ThemePreference = "light" | "dark" | "auto";
 
 // Puedes ajustar los horarios en los que el modo automático cambia entre claro y oscuro.
-// Modifica las constantes `AUTO_THEME_DAY_START_HOUR` y `AUTO_THEME_NIGHT_START_HOUR`
-// según tus necesidades.
+// Modifica las constantes de hora y minuto según tus necesidades.
 const AUTO_THEME_DAY_START_HOUR = 7; // 7:00 am
+const AUTO_THEME_DAY_START_MINUTE = 0;
 const AUTO_THEME_NIGHT_START_HOUR = 19; // 7:00 pm
+const AUTO_THEME_NIGHT_START_MINUTE = 0;
 
 type ThemeContextValue = {
   preference: ThemePreference;
@@ -26,16 +27,36 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
+function resolveAutoTheme(now: Date): "light" | "dark" {
+  const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
+  const dayStartMinutes =
+    AUTO_THEME_DAY_START_HOUR * 60 + AUTO_THEME_DAY_START_MINUTE;
+  const nightStartMinutes =
+    AUTO_THEME_NIGHT_START_HOUR * 60 + AUTO_THEME_NIGHT_START_MINUTE;
+
+  if (dayStartMinutes === nightStartMinutes) {
+    return "dark";
+  }
+
+  if (dayStartMinutes < nightStartMinutes) {
+    const isDaytime =
+      minutesSinceMidnight >= dayStartMinutes &&
+      minutesSinceMidnight < nightStartMinutes;
+    return isDaytime ? "light" : "dark";
+  }
+
+  const isNighttime =
+    minutesSinceMidnight >= nightStartMinutes &&
+    minutesSinceMidnight < dayStartMinutes;
+  return isNighttime ? "dark" : "light";
+}
+
 function resolveTheme(preference: ThemePreference, now: Date): "light" | "dark" {
   if (preference === "light" || preference === "dark") {
     return preference;
   }
 
-  const hour = now.getHours();
-  const isNight =
-    hour >= AUTO_THEME_NIGHT_START_HOUR || hour < AUTO_THEME_DAY_START_HOUR;
-
-  return isNight ? "dark" : "light";
+  return resolveAutoTheme(now);
 }
 
 interface ThemeProviderProps {
