@@ -8,6 +8,8 @@ type Alcance = "personal" | "equipo";
 type TipoRegistro = "evento" | "tarea";
 type TipoUnificado = "evento" | "tarea_personal" | "tarea_grupal";
 
+type EstadoEvento = "confirmado" | "cancelado" | "tentativo";
+
 interface EventoInternoRow {
   id: number;
   id_usuario: number;
@@ -20,6 +22,8 @@ interface EventoInternoRow {
   equipo_nombre: string | null;
   estado_asistencia: "pendiente" | "aceptado" | "rechazado" | null;
   es_organizador: 0 | 1;
+  estado_evento: EstadoEvento | null;
+  creador_nombre: string | null;
 }
 
 interface TareaRow {
@@ -61,6 +65,7 @@ interface EventoUnificado {
   equipoNombre: string | null;
   estadoAsistencia: "pendiente" | "aceptado" | "rechazado" | null;
   esOrganizador: boolean;
+  estadoEvento?: EstadoEvento;
 }
 
 async function obtenerUsuarioAutenticado(): Promise<number | null> {
@@ -274,11 +279,14 @@ export async function GET() {
          e.tipo,
          eq.nombre AS equipo_nombre,
          pei.estado_asistencia,
-         CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador
+         CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador,
+         e.estado AS estado_evento,
+         creador.nombre AS creador_nombre
        FROM eventos_internos e
        LEFT JOIN participantes_evento_interno pei
          ON pei.id_evento = e.id AND pei.id_usuario = ?
        LEFT JOIN equipos eq ON eq.id = e.id_equipo
+       LEFT JOIN usuarios creador ON creador.id = e.id_usuario
       WHERE e.id_usuario = ? OR pei.id IS NOT NULL
       ORDER BY datetime(e.inicio) ASC`,
       [userId, userId, userId]
@@ -302,6 +310,10 @@ export async function GET() {
           ? "aceptado"
           : evento.estado_asistencia ?? "pendiente",
       esOrganizador: evento.es_organizador === 1,
+      estadoEvento: evento.estado_evento ?? "confirmado",
+      estado_evento: evento.estado_evento ?? "confirmado",
+      creadorNombre: evento.creador_nombre ?? null,
+      creador_nombre: evento.creador_nombre ?? null,
     }));
 
     const tareas = await allQuery<TareaRow>(
