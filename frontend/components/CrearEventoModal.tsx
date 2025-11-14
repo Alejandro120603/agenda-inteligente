@@ -30,6 +30,21 @@ interface FormState {
   equipoId: string;
 }
 
+interface AutoHorarioState {
+  habilitado: boolean;
+  horaInicio: string;
+  horaFin: string;
+  duracion: string;
+}
+
+interface DisponibilidadRespuesta {
+  slots: string[];
+  best: string | null;
+  score: { slot: string; available: number; total: number }[];
+}
+
+const HORA_REGEX = /^\d{2}:\d{2}$/;
+
 const formatearFecha = (valor: Date) => {
   const year = valor.getFullYear();
   const month = String(valor.getMonth() + 1).padStart(2, "0");
@@ -61,22 +76,107 @@ const crearEstadoInicial = (): FormState => {
   };
 };
 
+const crearAutoHorarioInicial = (base?: Pick<FormState, "horaInicio" | "horaFin">): AutoHorarioState => ({
+  habilitado: false,
+  horaInicio: base?.horaInicio ?? "09:00",
+  horaFin: base?.horaFin ?? "18:00",
+  duracion: "60",
+});
+
+const combinarFechaHoraLocal = (fecha: string, hora: string) => {
+  const [horasRaw = "00", minutosRaw = "00"] = hora.split(":");
+  const horas = horasRaw.padStart(2, "0");
+  const minutos = minutosRaw.padStart(2, "0");
+  return `${fecha}T${horas}:${minutos}`;
+};
+
+const parseLocalDateTime = (valor: string): Date | null => {
+  if (typeof valor !== "string") {
+    return null;
+  }
+
+  const [fecha, tiempo] = valor.split("T");
+  if (!fecha || !tiempo) {
+    return null;
+  }
+
+  const [anio, mes, dia] = fecha.split("-").map((parte) => Number(parte));
+  const [horaRaw, minutoRaw] = tiempo.split(":");
+  const hora = Number(horaRaw);
+  const minuto = Number(minutoRaw);
+
+  if ([anio, mes, dia, hora, minuto].some((numero) => !Number.isFinite(numero))) {
+    return null;
+  }
+
+  return new Date(anio, mes - 1, dia, hora, minuto);
+};
+
+const convertirHoraAMinutos = (hora: string): number | null => {
+  if (!HORA_REGEX.test(hora)) {
+    return null;
+  }
+
+  const [horasRaw, minutosRaw] = hora.split(":");
+  const horas = Number(horasRaw);
+  const minutos = Number(minutosRaw);
+
+  if (!Number.isFinite(horas) || !Number.isFinite(minutos)) {
+    return null;
+  }
+
+  return horas * 60 + minutos;
+};
+
 const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModalProps) => {
   const [form, setForm] = useState<FormState>(crearEstadoInicial);
+  const [autoHorario, setAutoHorario] = useState<AutoHorarioState>(() => {
+    const base = crearEstadoInicial();
+    return crearAutoHorarioInicial({ horaInicio: base.horaInicio, horaFin: base.horaFin });
+  });
   const [equipos, setEquipos] = useState<EquipoOption[]>([]);
   const [cargandoEquipos, setCargandoEquipos] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [errorEquipos, setErrorEquipos] = useState<string | null>(null);
+  const [buscandoDisponibilidad, setBuscandoDisponibilidad] = useState(false);
+  const [errorDisponibilidad, setErrorDisponibilidad] = useState<string | null>(null);
+  const [resultadoDisponibilidad, setResultadoDisponibilidad] = useState<DisponibilidadRespuesta | null>(null);
+
+  const horarioFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat("es-MX", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    []
+  );
+
+  const formatearSlotLegible = useCallback(
+    (slot: string) => {
+      const parsed = parseLocalDateTime(slot);
+      return parsed ? horarioFormatter.format(parsed) : slot;
+    },
+    [horarioFormatter]
+  );
+
+  const restablecerFormulario = useCallback(() => {
+    const base = crearEstadoInicial();
+    setForm(base);
+    setAutoHorario(crearAutoHorarioInicial({ horaInicio: base.horaInicio, horaFin: base.horaFin }));
+    setBuscandoDisponibilidad(false);
+    setResultadoDisponibilidad(null);
+    setErrorDisponibilidad(null);
+    setErrorLocal(null);
+  }, []);
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    setForm(crearEstadoInicial());
-    setErrorLocal(null);
-  }, [open]);
+    restablecerFormulario();
+  }, [open, restablecerFormulario]);
 
   const cargarEquipos = useCallback(async () => {
     setCargandoEquipos(true);
@@ -143,6 +243,11 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
   const manejarCambio = (evento: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = evento.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "equipoId" || name === "fechaInicio") {
+      setResultadoDisponibilidad(null);
+      setErrorDisponibilidad(null);
+    }
   };
 
   const manejarSeleccionTipo = (tipoBase: TipoBase) => {
@@ -151,7 +256,137 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
 
   const manejarSeleccionAlcance = (alcance: Alcance) => {
     setForm((prev) => ({ ...prev, alcance, equipoId: alcance === "equipo" ? prev.equipoId : "" }));
+
+    if (alcance === "personal") {
+      setAutoHorario((prev) => ({ ...prev, habilitado: false }));
+      setResultadoDisponibilidad(null);
+      setErrorDisponibilidad(null);
+    }
   };
+
+  const manejarToggleAutoHorario = (habilitado: boolean) => {
+    setAutoHorario((prev) => ({ ...prev, habilitado }));
+
+    if (!habilitado) {
+      setResultadoDisponibilidad(null);
+      setErrorDisponibilidad(null);
+    }
+  };
+
+  const manejarCambioAutoCampo = (
+    campo: keyof Omit<AutoHorarioState, "habilitado">,
+    valor: string
+  ) => {
+    setAutoHorario((prev) => ({ ...prev, [campo]: valor }));
+    setResultadoDisponibilidad(null);
+    setErrorDisponibilidad(null);
+  };
+
+  const manejarBusquedaDisponibilidad = useCallback(async () => {
+    if (form.alcance !== "equipo") {
+      return;
+    }
+
+    if (!form.equipoId) {
+      setErrorDisponibilidad("Selecciona un equipo antes de buscar disponibilidad");
+      return;
+    }
+
+    if (!form.fechaInicio) {
+      setErrorDisponibilidad("Indica la fecha del evento para calcular la disponibilidad");
+      return;
+    }
+
+    const horaInicioNormalizada = autoHorario.horaInicio.padStart(5, "0");
+    const horaFinNormalizada = autoHorario.horaFin.padStart(5, "0");
+    const minutosInicio = convertirHoraAMinutos(horaInicioNormalizada);
+    const minutosFin = convertirHoraAMinutos(horaFinNormalizada);
+    const duracionMinutos = Number.parseInt(autoHorario.duracion, 10);
+
+    if (minutosInicio === null || minutosFin === null) {
+      setErrorDisponibilidad("Debes ingresar horas válidas en formato HH:MM");
+      return;
+    }
+
+    if (!Number.isFinite(duracionMinutos) || duracionMinutos <= 0) {
+      setErrorDisponibilidad("La duración debe ser un número mayor a cero");
+      return;
+    }
+
+    if (duracionMinutos > 24 * 60) {
+      setErrorDisponibilidad("La duración máxima soportada es de 1440 minutos");
+      return;
+    }
+
+    if (minutosFin <= minutosInicio) {
+      setErrorDisponibilidad("La hora final debe ser mayor a la inicial");
+      return;
+    }
+
+    const inicioIso = combinarFechaHoraLocal(form.fechaInicio, horaInicioNormalizada);
+    const finIso = combinarFechaHoraLocal(form.fechaInicio, horaFinNormalizada);
+
+    const inicioFecha = parseLocalDateTime(inicioIso);
+    const finFecha = parseLocalDateTime(finIso);
+
+    if (!inicioFecha || !finFecha || finFecha.getTime() <= inicioFecha.getTime()) {
+      setErrorDisponibilidad("El rango seleccionado no es válido");
+      return;
+    }
+
+    setBuscandoDisponibilidad(true);
+    setErrorDisponibilidad(null);
+    setResultadoDisponibilidad(null);
+
+    try {
+      const params = new URLSearchParams({
+        teamId: form.equipoId,
+        start: inicioIso,
+        end: finIso,
+        duration: String(duracionMinutos),
+      });
+
+      const respuesta = await fetch(`/api/events/smart-availability?${params.toString()}`);
+      const datos = await respuesta.json().catch(() => null);
+
+      if (!respuesta.ok) {
+        throw new Error(datos?.error ?? "No se pudo calcular la disponibilidad");
+      }
+
+      const resultado = datos as DisponibilidadRespuesta;
+      setResultadoDisponibilidad(resultado);
+
+      if (resultado.best) {
+        const mejor = parseLocalDateTime(resultado.best);
+
+        if (mejor) {
+          const finSugerido = new Date(mejor.getTime() + duracionMinutos * 60 * 1000);
+          setForm((prev) => ({
+            ...prev,
+            fechaInicio: formatearFecha(mejor),
+            horaInicio: formatearHora(mejor),
+            fechaFin: formatearFecha(finSugerido),
+            horaFin: formatearHora(finSugerido),
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("[CrearEventoModal] manejarBusquedaDisponibilidad", error);
+      const mensaje =
+        error instanceof Error ? error.message : "No se pudo calcular la disponibilidad";
+      setErrorDisponibilidad(mensaje);
+      setResultadoDisponibilidad(null);
+    } finally {
+      setBuscandoDisponibilidad(false);
+    }
+  }, [
+    autoHorario.duracion,
+    autoHorario.horaFin,
+    autoHorario.horaInicio,
+    form.alcance,
+    form.equipoId,
+    form.fechaInicio,
+  ]);
 
   const manejarEnvio = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -228,7 +463,7 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
 
       const mensaje = typeof datos?.message === "string" ? datos.message : "Registro creado";
       await onCreated(mensaje);
-      setForm(crearEstadoInicial());
+      restablecerFormulario();
     } catch (error) {
       console.error("[CrearEventoModal] manejarEnvio", error);
       const mensaje = error instanceof Error ? error.message : "Ocurrió un error inesperado";
@@ -386,29 +621,167 @@ const CrearEventoModal = ({ open, onClose, onCreated, onError }: CrearEventoModa
           </div>
 
           {form.alcance === "equipo" && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="equipoId">
-                Equipo
-              </label>
-              <select
-                id="equipoId"
-                name="equipoId"
-                value={form.equipoId}
-                onChange={manejarCambio}
-                required
-                className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
-              >
-                <option value="">Selecciona un equipo</option>
-                {equipos.map((equipo) => (
-                  <option key={equipo.id} value={equipo.id}>
-                    {equipo.nombre}
-                  </option>
-                ))}
-              </select>
-              {cargandoEquipos && <p className="text-xs text-gray-500 dark:text-gray-400">Cargando equipos...</p>}
-              {!cargandoEquipos && errorEquipos && (
-                <p className="text-xs text-red-600 dark:text-red-300">{errorEquipos}</p>
-              )}
+            <div className="space-y-6 rounded-2xl border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-900/70">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200" htmlFor="equipoId">
+                  Equipo
+                </label>
+                <select
+                  id="equipoId"
+                  name="equipoId"
+                  value={form.equipoId}
+                  onChange={manejarCambio}
+                  required
+                  className="w-full rounded-2xl border border-gray-300 px-4 py-2 text-sm text-gray-900 transition focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
+                >
+                  <option value="">Selecciona un equipo</option>
+                  {equipos.map((equipo) => (
+                    <option key={equipo.id} value={equipo.id}>
+                      {equipo.nombre}
+                    </option>
+                  ))}
+                </select>
+                {cargandoEquipos && <p className="text-xs text-gray-500 dark:text-gray-400">Cargando equipos...</p>}
+                {!cargandoEquipos && errorEquipos && (
+                  <p className="text-xs text-red-600 dark:text-red-300">{errorEquipos}</p>
+                )}
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-dashed border-gray-200 p-4 dark:border-gray-600">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="flex items-start gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900/70"
+                      checked={autoHorario.habilitado}
+                      onChange={(evento) => manejarToggleAutoHorario(evento.target.checked)}
+                    />
+                    <span>
+                      Encontrar horario automáticamente
+                      <span className="mt-1 block text-xs font-normal text-gray-500 dark:text-gray-400">
+                        Busca el mejor horario disponible para todo el equipo dentro del rango indicado.
+                      </span>
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void manejarBusquedaDisponibilidad();
+                    }}
+                    disabled={!autoHorario.habilitado || !form.equipoId || buscandoDisponibilidad}
+                    className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-400"
+                  >
+                    {buscandoDisponibilidad ? "Buscando..." : "Buscar disponibilidad"}
+                  </button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Hora inicio deseada
+                    </p>
+                    <input
+                      id="auto-hora-inicio"
+                      type="time"
+                      value={autoHorario.horaInicio}
+                      onChange={(evento) => manejarCambioAutoCampo("horaInicio", evento.target.value)}
+                      disabled={!autoHorario.habilitado}
+                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Hora fin deseada
+                    </p>
+                    <input
+                      id="auto-hora-fin"
+                      type="time"
+                      value={autoHorario.horaFin}
+                      onChange={(evento) => manejarCambioAutoCampo("horaFin", evento.target.value)}
+                      disabled={!autoHorario.habilitado}
+                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Duración (minutos)
+                    </p>
+                    <input
+                      id="auto-duracion"
+                      type="number"
+                      min={15}
+                      step={15}
+                      value={autoHorario.duracion}
+                      onChange={(evento) => manejarCambioAutoCampo("duracion", evento.target.value)}
+                      disabled={!autoHorario.habilitado}
+                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm transition focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:border-gray-200 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-100"
+                    />
+                  </div>
+                </div>
+
+                {errorDisponibilidad && (
+                  <p className="text-xs text-red-600 dark:text-red-300">{errorDisponibilidad}</p>
+                )}
+
+                {resultadoDisponibilidad && (
+                  <div className="space-y-3 rounded-2xl bg-gray-50 p-4 text-sm dark:bg-gray-900/60">
+                    {resultadoDisponibilidad.slots.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="font-semibold text-green-600 dark:text-green-400">
+                          Se encontraron horarios donde todo el equipo está disponible:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {resultadoDisponibilidad.slots.map((slot) => (
+                            <span
+                              key={slot}
+                              className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-500/20 dark:text-green-200"
+                            >
+                              {formatearSlotLegible(slot)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : resultadoDisponibilidad.best ? (
+                      <p className="font-medium text-amber-600 dark:text-amber-300">
+                        ⚠️ No existe un horario donde todos estén disponibles. Se sugiere el siguiente horario óptimo:
+                        {" "}
+                        <span className="font-semibold">
+                          {formatearSlotLegible(resultadoDisponibilidad.best)}
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="font-medium text-amber-600 dark:text-amber-300">
+                        ⚠️ No se encontraron horarios disponibles en el rango indicado.
+                      </p>
+                    )}
+
+                    {resultadoDisponibilidad.score.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Disponibilidad por horario
+                        </p>
+                        <ul className="space-y-2">
+                          {resultadoDisponibilidad.score.map((item) => (
+                            <li
+                              key={item.slot}
+                              className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${
+                                item.slot === resultadoDisponibilidad.best
+                                  ? "border-blue-500/60 bg-blue-50 text-blue-700 dark:border-blue-400/60 dark:bg-blue-500/10 dark:text-blue-200"
+                                  : "border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-200"
+                              }`}
+                            >
+                              <span>{formatearSlotLegible(item.slot)}</span>
+                              <span className="font-semibold">
+                                {item.available} / {item.total} disponibles
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
