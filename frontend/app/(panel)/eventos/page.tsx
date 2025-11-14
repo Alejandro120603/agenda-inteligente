@@ -254,16 +254,16 @@ const CalendarioUnificadoPage = () => {
 
   return (
     <>
-      <div className="flex flex-1 flex-col gap-6">
+      <div className="flex flex-1 flex-col gap-6 text-gray-900 dark:text-gray-100">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold text-gray-900">Calendario unificado de eventos y tareas</h1>
-        <p className="text-gray-600">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Calendario unificado de eventos y tareas</h1>
+        <p className="text-gray-600 dark:text-gray-300">
           Consulta de un vistazo tus eventos, tareas personales y tareas grupales en un mismo calendario.
         </p>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-4">
             {legendItems.map((legend) => (
-              <div key={legend.label} className="flex items-center gap-2 text-sm text-gray-600">
+              <div key={legend.label} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                 <span
                   className="inline-flex h-3 w-3 rounded-full"
                   style={{ backgroundColor: legend.color }}
@@ -275,7 +275,7 @@ const CalendarioUnificadoPage = () => {
           </div>
           <button
             type="button"
-            className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400"
             onClick={abrirModalCrear}
           >
             Crear evento
@@ -287,8 +287,8 @@ const CalendarioUnificadoPage = () => {
         <div
           className={`rounded-lg border px-4 py-2 text-sm ${
             mensaje.tipo === "success"
-              ? "border-green-200 bg-green-50 text-green-700"
-              : "border-red-200 bg-red-50 text-red-700"
+              ? "border-green-200 bg-green-50 text-green-700 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-200"
+              : "border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200"
           }`}
         >
           {mensaje.texto}
@@ -296,20 +296,20 @@ const CalendarioUnificadoPage = () => {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
           {error instanceof Error ? error.message : "No se pudo cargar el calendario"}
         </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Tu calendario</h2>
-            <p className="text-sm text-gray-500">Navega entre meses y crea hábitos alrededor de tus compromisos.</p>
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="border-b border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/70">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tu calendario</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Navega entre meses y crea hábitos alrededor de tus compromisos.</p>
           </div>
           <div className="p-4">
             {isLoading && eventosCalendario.length === 0 ? (
-              <div className="flex min-h-[480px] items-center justify-center text-sm text-gray-500">
+              <div className="flex min-h-[480px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
                 Cargando calendario...
               </div>
             ) : (
@@ -328,14 +328,14 @@ const CalendarioUnificadoPage = () => {
         </div>
 
         <aside className="flex h-full flex-col gap-4">
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h3 className="text-lg font-semibold text-gray-900">Próximos compromisos</h3>
-              <p className="text-sm text-gray-500">Los siguientes eventos y tareas en tu agenda.</p>
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-800 dark:bg-gray-900/70">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Próximos compromisos</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Los siguientes eventos y tareas en tu agenda.</p>
             </div>
             <div className="flex flex-col gap-4 px-5 py-4">
               {proximosEventos.length === 0 ? (
-                <p className="text-sm text-gray-500">No hay eventos o tareas próximos.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">No hay eventos o tareas próximos.</p>
               ) : (
                 proximosEventos.map(({ item }) => {
                   const color = obtenerColorPorTipo(item.tipo);
@@ -352,12 +352,12 @@ const CalendarioUnificadoPage = () => {
                     item.estado_asistencia === "pendiente";
 
                   return (
-                    <div key={item.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                    <div key={item.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-900/80">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
                             <span className="inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-                            <span className="text-xs font-medium uppercase text-gray-500">
+                            <span className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                               {item.tipo === "evento"
                                 ? "Evento"
                                 : item.tipo === "tarea_grupal"
@@ -365,15 +365,15 @@ const CalendarioUnificadoPage = () => {
                                   : "Tarea personal"}
                             </span>
                           </div>
-                          <p className="text-base font-semibold text-gray-900">
+                          <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
                             {item.tipo === "tarea_grupal" ? `👥 ${item.titulo}` : item.titulo}
                           </p>
-                          <p className="text-sm text-gray-600">{fechaTexto}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">{fechaTexto}</p>
                           {item.tipo === "evento" && item.equipo_nombre && (
-                            <p className="text-xs text-gray-500">Equipo: {item.equipo_nombre}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Equipo: {item.equipo_nombre}</p>
                           )}
                           {descripcionCorta && (
-                            <p className="text-xs text-gray-500">{descripcionCorta}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{descripcionCorta}</p>
                           )}
                         </div>
                       </div>
@@ -381,7 +381,7 @@ const CalendarioUnificadoPage = () => {
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
                             type="button"
-                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300 dark:bg-blue-500 dark:hover:bg-blue-400"
                             onClick={() => manejarRespuesta(item, "aceptado")}
                             disabled={respuestaPendiente !== null}
                           >
@@ -389,7 +389,7 @@ const CalendarioUnificadoPage = () => {
                           </button>
                           <button
                             type="button"
-                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800/70"
                             onClick={() => manejarRespuesta(item, "rechazado")}
                             disabled={respuestaPendiente !== null}
                           >
@@ -398,7 +398,7 @@ const CalendarioUnificadoPage = () => {
                         </div>
                       )}
                       {item.tipo === "evento" && item.estado_asistencia && item.estado_asistencia !== "pendiente" && (
-                        <p className="mt-3 text-xs font-medium text-gray-500">
+                        <p className="mt-3 text-xs font-medium text-gray-500 dark:text-gray-400">
                           Tu estado: {item.estado_asistencia === "aceptado" ? "✅ Aceptado" : "❌ Rechazado"}
                         </p>
                       )}
@@ -409,9 +409,9 @@ const CalendarioUnificadoPage = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-sm text-gray-600">
-            <p className="font-semibold text-gray-800">Consejo</p>
-            <p className="mt-1">
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-900/70 dark:text-gray-300">
+            <p className="font-semibold text-gray-800 dark:text-gray-100">Consejo</p>
+            <p className="mt-1 text-gray-600 dark:text-gray-300">
               Arrastra eventos directamente en el calendario para reorganizar tu semana una vez que esta funcionalidad esté disponible.
             </p>
           </div>

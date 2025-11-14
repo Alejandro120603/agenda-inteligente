@@ -592,10 +592,10 @@ export default function EquiposPage() {
   );
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 text-gray-900 dark:text-gray-100">
       <div className="flex flex-col gap-3">
-        <h1 className="text-3xl font-semibold text-gray-900">Equipos</h1>
-        <p className="text-sm text-gray-600">
+        <h1 className="text-3xl font-semibold text-gray-900 dark:text-gray-100">Equipos</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
           Organiza tu trabajo colaborativo: revisa tus equipos activos, responde
           invitaciones pendientes y crea nuevos grupos para tus proyectos.
         </p>
@@ -605,28 +605,28 @@ export default function EquiposPage() {
         <div
           className={`rounded-md border px-4 py-3 text-sm font-medium ${
             feedback.type === "success"
-              ? "border-green-200 bg-green-50 text-green-700"
-              : "border-red-200 bg-red-50 text-red-700"
+              ? "border-green-200 bg-green-50 text-green-700 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-200"
+              : "border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200"
           }`}
         >
           {feedback.message}
         </div>
       )}
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Mis equipos</h2>
-          {cargando && <span className="text-xs text-gray-500">Actualizando…</span>}
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Mis equipos</h2>
+          {cargando && <span className="text-xs text-gray-500 dark:text-gray-400">Actualizando…</span>}
         </div>
         {!equipos.length && !cargando ? (
-          <p className="mt-6 text-sm text-gray-500">
+          <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
             Todavía no formas parte de ningún equipo. ¡Crea uno nuevo o acepta
             una invitación!
           </p>
         ) : (
           <div className="mt-6 overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <table className="min-w-full divide-y divide-gray-200 text-left text-sm dark:divide-gray-800">
+              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900 dark:text-gray-300">
                 <tr>
                   <th className="px-4 py-3">Nombre</th>
                   <th className="px-4 py-3">Creado por</th>
@@ -635,28 +635,28 @@ export default function EquiposPage() {
                   <th className="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {equipos.map((equipo) => {
                   const esAdministrador = equipo.rol === "administrador";
                   return (
-                    <tr key={equipo.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">
+                    <tr key={equipo.id} className="transition hover:bg-gray-50 dark:hover:bg-gray-800/70">
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                         <div className="flex items-center gap-2">
                           <span>{equipo.nombre}</span>
                           {esAdministrador && (
-                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200">
                               Administras
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                         {equipo.creador_nombre ?? "Desconocido"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                         {formatearFecha(equipo.creado_en)}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">
+                      <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">
                         {equipo.miembros}
                       </td>
                       <td className="px-4 py-3">
@@ -664,14 +664,14 @@ export default function EquiposPage() {
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => abrirModalEdicion(equipo.id)}
-                              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/80"
                             >
                               Editar
                             </button>
                             <button
                               onClick={() => manejarEliminarEquipo(equipo.id)}
                               disabled={estaProcesando(`eliminar-equipo-${equipo.id}`)}
-                              className={`rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-400`}
+                              className={`rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-400 dark:bg-red-500 dark:hover:bg-red-400`}
                             >
                               {estaProcesando(`eliminar-equipo-${equipo.id}`)
                                 ? "Eliminando…"
@@ -683,7 +683,7 @@ export default function EquiposPage() {
                             <button
                               onClick={() => manejarAbandonarEquipo(equipo.id)}
                               disabled={estaProcesando(`abandonar-${equipo.id}`)}
-                              className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                              className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
                             >
                               {estaProcesando(`abandonar-${equipo.id}`)
                                 ? "Saliendo…"
@@ -701,13 +701,13 @@ export default function EquiposPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Invitaciones pendientes</h2>
-          {cargando && <span className="text-xs text-gray-500">Actualizando…</span>}
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Invitaciones pendientes</h2>
+          {cargando && <span className="text-xs text-gray-500 dark:text-gray-400">Actualizando…</span>}
         </div>
         {!invitaciones.length && !cargando ? (
-          <p className="mt-6 text-sm text-gray-500">
+          <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
             No tienes invitaciones por el momento.
           </p>
         ) : (
@@ -715,13 +715,13 @@ export default function EquiposPage() {
             {invitaciones.map((invitacion) => (
               <li
                 key={invitacion.id}
-                className="flex flex-col gap-3 rounded-lg border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-lg border border-gray-100 bg-gray-50 p-4 transition-colors dark:border-gray-700 dark:bg-gray-900/80 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {invitacion.equipo_nombre}
                   </p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
                     Invitado por {invitacion.invitado_por_nombre ?? "alguien"} el {" "}
                     {formatearFecha(invitacion.invitado_en)}
                   </p>
@@ -730,14 +730,14 @@ export default function EquiposPage() {
                   <button
                     onClick={() => manejarRespuestaInvitacion(invitacion.id, "aceptar")}
                     disabled={procesandoInvitacion === invitacion.id}
-                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400"
+                    className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-400 dark:bg-green-500 dark:hover:bg-green-400"
                   >
                     Aceptar
                   </button>
                   <button
                     onClick={() => manejarRespuestaInvitacion(invitacion.id, "rechazar")}
                     disabled={procesandoInvitacion === invitacion.id}
-                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-400"
+                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-400 dark:bg-red-500 dark:hover:bg-red-400"
                   >
                     Rechazar
                   </button>
@@ -748,11 +748,11 @@ export default function EquiposPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-gray-900">Crear equipo</h2>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Crear equipo</h2>
         <form onSubmit={manejarCreacionEquipo} className="mt-6 space-y-6">
           <div className="space-y-2">
-            <label htmlFor="nombre" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
               Nombre del equipo
             </label>
             <input
@@ -762,15 +762,15 @@ export default function EquiposPage() {
               value={nombreEquipo}
               onChange={(event) => setNombreEquipo(event.target.value)}
               placeholder="Ej. Equipo de producto"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
             />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="invitados" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="invitados" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
               Invitar usuarios
             </label>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               Selecciona uno o varios compañeros para enviarles una invitación.
             </p>
             <select
@@ -783,7 +783,7 @@ export default function EquiposPage() {
                 );
                 setInvitadosSeleccionados(opciones);
               }}
-              className="h-40 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              className="h-40 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
             >
               {usuarios.length === 0 ? (
                 <option disabled value="">
@@ -803,14 +803,14 @@ export default function EquiposPage() {
             <button
               type="button"
               onClick={resetFormulario}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/80"
             >
               Limpiar
             </button>
             <button
               type="submit"
               disabled={creando}
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             >
               {creando ? "Creando…" : "Crear equipo"}
             </button>
@@ -820,12 +820,12 @@ export default function EquiposPage() {
 
       {modalEdicionAbierta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl dark:bg-gray-950">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Editar equipo</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Editar equipo</h3>
                 {equipoEditando && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     Gestiona el nombre y los miembros del equipo.
                   </p>
                 )}
@@ -833,18 +833,18 @@ export default function EquiposPage() {
               <button
                 type="button"
                 onClick={cerrarModalEdicion}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800/80"
               >
                 Cerrar
               </button>
             </div>
 
             {cargandoDetalle || !equipoEditando ? (
-              <div className="py-12 text-center text-sm text-gray-500">Cargando información…</div>
+              <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">Cargando información…</div>
             ) : (
               <div className="mt-6 space-y-6">
                 <form onSubmit={manejarEdicionNombre} className="space-y-2">
-                  <label htmlFor="nombre-edicion" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="nombre-edicion" className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                     Nombre del equipo
                   </label>
                   <input
@@ -852,13 +852,13 @@ export default function EquiposPage() {
                     type="text"
                     value={nuevoNombreEquipo}
                     onChange={(event) => setNuevoNombreEquipo(event.target.value)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
                   />
                   <div className="flex justify-end">
                     <button
                       type="submit"
                       disabled={estaProcesando(`renombrar-${equipoEditando.id}`)}
-                      className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+                      className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400"
                     >
                       {estaProcesando(`renombrar-${equipoEditando.id}`)
                         ? "Guardando…"
@@ -870,8 +870,8 @@ export default function EquiposPage() {
                 <div className="space-y-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-900">Miembros del equipo</h4>
-                      <p className="text-xs text-gray-500">
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Miembros del equipo</h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         Administra las invitaciones y la composición del equipo.
                       </p>
                     </div>
@@ -879,7 +879,7 @@ export default function EquiposPage() {
                       <select
                         value={invitadoAAgregar}
                         onChange={(event) => setInvitadoAAgregar(event.target.value)}
-                        className="min-w-[220px] rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        className="min-w-[220px] rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-100"
                       >
                         <option value="" disabled>
                           {usuariosDisponibles.length
@@ -898,7 +898,7 @@ export default function EquiposPage() {
                         disabled={
                           !invitadoAAgregar || estaProcesando(`invitar-${equipoEditando.id}`)
                         }
-                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+                        className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400"
                       >
                         {estaProcesando(`invitar-${equipoEditando.id}`)
                           ? "Enviando…"
@@ -909,25 +909,25 @@ export default function EquiposPage() {
 
                   <div className="max-h-64 space-y-3 overflow-y-auto pr-2">
                     {equipoEditando.miembros.length === 0 ? (
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         Aún no hay miembros en este equipo.
                       </p>
                     ) : (
                       equipoEditando.miembros.map((miembro) => (
                         <div
                           key={miembro.id}
-                          className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                          className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50 p-4 transition-colors dark:border-gray-700 dark:bg-gray-900/70 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div>
-                            <p className="text-sm font-semibold text-gray-900">{miembro.nombre}</p>
-                            <p className="text-xs text-gray-600">{miembro.correo}</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{miembro.nombre}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-300">{miembro.correo}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <span
                               className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                                 miembro.rol === "administrador"
-                                  ? "bg-indigo-100 text-indigo-700"
-                                  : "bg-blue-100 text-blue-700"
+                                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200"
+                                  : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200"
                               }`}
                             >
                               {miembro.rol === "administrador" ? "Administrador" : "Miembro"}
@@ -935,10 +935,10 @@ export default function EquiposPage() {
                             <span
                               className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                 miembro.estado === "aceptado"
-                                  ? "bg-green-100 text-green-700"
+                                  ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200"
                                   : miembro.estado === "pendiente"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-700"
+                                  ? "bg-yellow-100 text-yellow-800 dark:bg-amber-500/20 dark:text-amber-200"
+                                  : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200"
                               }`}
                             >
                               {miembro.estado === "aceptado"
@@ -952,7 +952,7 @@ export default function EquiposPage() {
                                 type="button"
                                 onClick={() => manejarEliminarMiembro(miembro)}
                                 disabled={estaProcesando(`eliminar-miembro-${miembro.id}`)}
-                                className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                                className="rounded-md border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
                               >
                                 {estaProcesando(`eliminar-miembro-${miembro.id}`)
                                   ? "Quitando…"
@@ -966,20 +966,20 @@ export default function EquiposPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
                   <button
                     type="button"
                     onClick={() => equipoEditando && manejarEliminarEquipo(equipoEditando.id)}
                     disabled={
                       !equipoEditando || estaProcesando(`eliminar-equipo-${equipoEditando?.id}`)
                     }
-                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-400"
+                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-400 dark:bg-red-500 dark:hover:bg-red-400"
                   >
                     {estaProcesando(`eliminar-equipo-${equipoEditando.id}`)
                       ? "Eliminando…"
                       : "Eliminar equipo"}
                   </button>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Solo el administrador puede eliminar el equipo o a sus miembros.
                   </p>
                 </div>

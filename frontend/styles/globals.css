@@ -2,18 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
-  min-height: 100%;
-  scroll-behavior: smooth;
-}
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+    scroll-behavior: smooth;
+  }
 
-body {
-  @apply bg-gray-50 text-gray-900 transition-colors duration-300;
-}
+  :root {
+    color-scheme: light;
+  }
 
-.dark body {
-  @apply bg-gray-950 text-gray-100;
+  body {
+    @apply min-h-full bg-gray-50 text-gray-900 antialiased transition-colors duration-300;
+  }
+
+  .dark :root {
+    color-scheme: dark;
+  }
+
+  .dark body {
+    @apply bg-gray-950 text-gray-100;
+  }
 }
 
 ::selection {
