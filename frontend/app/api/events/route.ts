@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { allQuery, getQuery, runQuery } from "@/lib/db";
 
+const MINUTE_IN_MS = 60 * 1000;
+
+type Alcance = "personal" | "equipo";
+type TipoRegistro = "evento" | "tarea";
+type TipoUnificado = "evento" | "tarea_personal" | "tarea_grupal";
+
 interface EventoInternoRow {
   id: number;
   id_usuario: number;
@@ -10,33 +16,35 @@ interface EventoInternoRow {
   descripcion: string | null;
   inicio: string;
   fin: string;
-  ubicacion: string | null;
-  tipo: "personal" | "equipo" | "otro";
-  recordatorio: number;
-  creado_en: string;
+  tipo: string;
   equipo_nombre: string | null;
+  estado_asistencia: "pendiente" | "aceptado" | "rechazado" | null;
   es_organizador: 0 | 1;
-  es_participante: 0 | 1;
+}
+
+interface TareaRow {
+  id: number;
+  id_usuario: number;
+  id_equipo: number | null;
+  titulo: string;
+  descripcion: string | null;
+  fecha: string;
+  es_grupal: number;
+  tipo: string | null;
+  equipo_nombre: string | null;
+}
+
+interface ParticipanteRow {
+  id_usuario: number;
+  nombre: string | null;
   estado_asistencia: "pendiente" | "aceptado" | "rechazado" | null;
 }
 
-interface PragmaTableInfoRow {
-  name: string;
-}
-
-interface TareaDinamicaRow {
+interface ParticipanteRespuesta {
   id: number;
-  titulo: string;
-  descripcion?: string | null;
-  fecha?: string | null;
-  id_equipo?: number | null;
-  es_grupal?: number | boolean | null;
-  tipo_registro?: string | null;
-  completada?: number | boolean | null;
-  equipo_nombre?: string | null;
+  nombre: string | null;
+  estado: "pendiente" | "aceptado" | "rechazado";
 }
-
-type TipoUnificado = "evento" | "tarea_personal" | "tarea_grupal";
 
 interface EventoUnificado {
   id: string;
@@ -48,11 +56,11 @@ interface EventoUnificado {
   inicio: string | null;
   fin: string | null;
   fecha: string | null;
-  ubicacion: string | null;
-  equipo_nombre: string | null;
-  es_organizador: boolean;
-  es_participante: boolean;
-  estado_asistencia: "pendiente" | "aceptado" | "rechazado" | null;
+  idEquipo: number | null;
+  alcance: Alcance;
+  equipoNombre: string | null;
+  estadoAsistencia: "pendiente" | "aceptado" | "rechazado" | null;
+  esOrganizador: boolean;
 }
 
 async function obtenerUsuarioAutenticado(): Promise<number | null> {
@@ -71,261 +79,65 @@ async function obtenerUsuarioAutenticado(): Promise<number | null> {
   return userId;
 }
 
-function inferirTipoTarea(tarea: TareaDinamicaRow): TipoUnificado {
-  const { es_grupal, tipo_registro, id_equipo } = tarea;
-
-  if (typeof es_grupal === "number") {
-    return es_grupal !== 0 ? "tarea_grupal" : "tarea_personal";
-  }
-
-  if (typeof es_grupal === "boolean") {
-    return es_grupal ? "tarea_grupal" : "tarea_personal";
-  }
-
-  if (typeof tipo_registro === "string") {
-    const valorNormalizado = tipo_registro.trim().toLowerCase();
-    if (["grupal", "equipo", "team", "colaborativa", "grupo"].includes(valorNormalizado)) {
-      return "tarea_grupal";
-    }
-  }
-
-  if (typeof id_equipo === "number" && Number.isFinite(id_equipo)) {
-    return "tarea_grupal";
-  }
-
-  return "tarea_personal";
+function formatDateTimeLocal(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  const hours = String(value.getHours()).padStart(2, "0");
+  const minutes = String(value.getMinutes()).padStart(2, "0");
+  const seconds = String(value.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
-function obtenerFechaComparable(evento: EventoUnificado): string | null {
-  if (evento.tipo === "evento") {
-    return evento.inicio ?? evento.fin;
-  }
-
-  return evento.fecha ? `${evento.fecha}T00:00:00` : null;
-}
-
-async function obtenerTareasUnificadas(userId: number): Promise<EventoUnificado[]> {
-  try {
-    const tablaTareas = await getQuery<{ name: string }>(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tareas'"
-    );
-
-    if (!tablaTareas) {
-      return [];
-    }
-
-    const columnas = await allQuery<PragmaTableInfoRow>(
-      "PRAGMA table_info('tareas')"
-    );
-
-    const nombresColumnas = new Set(columnas.map((columna) => columna.name));
-
-    if (!nombresColumnas.has("id") || !nombresColumnas.has("titulo")) {
-      return [];
-    }
-
-    const fechaColumna = nombresColumnas.has("fecha")
-      ? "fecha"
-      : nombresColumnas.has("fecha_limite")
-        ? "fecha_limite"
-        : nombresColumnas.has("vencimiento")
-          ? "vencimiento"
-          : null;
-
-    if (!fechaColumna) {
-      return [];
-    }
-
-    const selectCampos: string[] = [
-      "t.id AS id",
-      "t.titulo AS titulo",
-      `t.${fechaColumna} AS fecha`,
-    ];
-
-    if (nombresColumnas.has("descripcion")) {
-      selectCampos.push("t.descripcion AS descripcion");
-    }
-
-    if (nombresColumnas.has("id_equipo")) {
-      selectCampos.push("t.id_equipo AS id_equipo");
-    }
-
-    if (nombresColumnas.has("es_grupal")) {
-      selectCampos.push("t.es_grupal AS es_grupal");
-    }
-
-    if (nombresColumnas.has("tipo")) {
-      selectCampos.push("t.tipo AS tipo_registro");
-    }
-
-    if (nombresColumnas.has("completada")) {
-      selectCampos.push("t.completada AS completada");
-    }
-
-    let joins = "";
-
-    if (nombresColumnas.has("id_equipo")) {
-      joins += " LEFT JOIN equipos eq ON eq.id = t.id_equipo";
-      selectCampos.push("eq.nombre AS equipo_nombre");
-    }
-
-    let membershipJoin = "";
-    if (nombresColumnas.has("id_equipo")) {
-      membershipJoin =
-        " LEFT JOIN miembros_equipo me ON me.id_equipo = t.id_equipo AND me.id_usuario = ? AND me.estado = 'aceptado'";
-      joins += membershipJoin;
-    }
-
-    const condiciones: string[] = [];
-    const parametros: unknown[] = [];
-
-    if (membershipJoin) {
-      parametros.push(userId);
-    }
-
-    if (nombresColumnas.has("id_usuario")) {
-      if (membershipJoin) {
-        condiciones.push(`t.id_usuario = ? OR me.id IS NOT NULL`);
-      } else {
-        condiciones.push(`t.id_usuario = ?`);
-      }
-      parametros.push(userId);
-    } else if (membershipJoin) {
-      condiciones.push("me.id IS NOT NULL");
-    }
-
-    const whereClause = condiciones.length > 0 ? ` WHERE ${condiciones.join(" OR ")}` : "";
-
-    const query = `SELECT ${selectCampos.join(", ")} FROM tareas t${joins}${whereClause}`;
-
-    const tareas = await allQuery<TareaDinamicaRow>(query, parametros);
-
-    return tareas
-      .filter((tarea) => typeof tarea.fecha === "string" && tarea.fecha.trim().length > 0)
-      .map((tarea) => {
-        const tipoUnificado = inferirTipoTarea(tarea);
-
-        return {
-          id: `tarea-${tarea.id}`,
-          source: "tarea" as const,
-          sourceId: tarea.id,
-          tipo: tipoUnificado,
-          titulo: tarea.titulo,
-          descripcion: tarea.descripcion ?? null,
-          inicio: null,
-          fin: null,
-          fecha: tarea.fecha ?? null,
-          ubicacion: null,
-          equipo_nombre: tarea.equipo_nombre ?? null,
-          es_organizador: false,
-          es_participante: tipoUnificado === "tarea_grupal",
-          estado_asistencia: null,
-        } satisfies EventoUnificado;
-      });
-  } catch (error) {
-    console.warn("[GET /api/events] No se pudieron cargar las tareas", error);
-    return [];
-  }
-}
-
-export async function GET() {
-  try {
-    const userId = await obtenerUsuarioAutenticado();
-
-    if (!userId) {
-      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-    }
-
-    const eventosInternos = await allQuery<EventoInternoRow>(
-      `SELECT
-        e.id,
-        e.id_usuario,
-        e.id_equipo,
-        e.titulo,
-        e.descripcion,
-        e.inicio,
-        e.fin,
-        e.ubicacion,
-        e.tipo,
-        e.recordatorio,
-        e.creado_en,
-        eq.nombre AS equipo_nombre,
-        CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador,
-        CASE WHEN pei.id IS NULL THEN 0 ELSE 1 END AS es_participante,
-        pei.estado_asistencia
-      FROM eventos_internos e
-      LEFT JOIN participantes_evento_interno pei
-        ON pei.id_evento = e.id AND pei.id_usuario = ?
-      LEFT JOIN equipos eq ON eq.id = e.id_equipo
-      WHERE e.id_usuario = ? OR pei.id IS NOT NULL
-      ORDER BY datetime(e.inicio) ASC`,
-      [userId, userId, userId]
-    );
-
-    const eventosUnificados: EventoUnificado[] = eventosInternos.map((evento) => ({
-      id: `evento-${evento.id}`,
-      source: "evento_interno",
-      sourceId: evento.id,
-      tipo: "evento",
-      titulo: evento.titulo,
-      descripcion: evento.descripcion,
-      inicio: evento.inicio,
-      fin: evento.fin,
-      fecha: null,
-      ubicacion: evento.ubicacion,
-      equipo_nombre: evento.equipo_nombre,
-      es_organizador: Boolean(evento.es_organizador),
-      es_participante: Boolean(evento.es_participante),
-      estado_asistencia: evento.estado_asistencia ?? null,
-    }));
-
-    const tareasUnificadas = await obtenerTareasUnificadas(userId);
-
-    const combinados = [...eventosUnificados, ...tareasUnificadas].sort((a, b) => {
-      const fechaA = obtenerFechaComparable(a);
-      const fechaB = obtenerFechaComparable(b);
-
-      if (!fechaA && !fechaB) return 0;
-      if (!fechaA) return 1;
-      if (!fechaB) return -1;
-
-      return new Date(fechaA).getTime() - new Date(fechaB).getTime();
-    });
-
-    return NextResponse.json(combinados);
-  } catch (error) {
-    console.error("[GET /api/events]", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
-  }
-}
-
-type TipoCreacion = "evento" | "tarea_personal" | "tarea_grupal";
-
-const TIPOS_CREACION = new Set<TipoCreacion>([
-  "evento",
-  "tarea_personal",
-  "tarea_grupal",
-]);
-
-function normalizarTextoOpcional(valor: unknown): string | null {
-  if (typeof valor !== "string") {
+function parseDateTimeInput(value: unknown): { iso: string; date: Date } | null {
+  if (typeof value !== "string") {
     return null;
   }
 
-  const limpio = valor.trim();
-  return limpio.length > 0 ? limpio : null;
-}
-
-function normalizarFecha(fecha: unknown): string | null {
-  if (typeof fecha !== "string") {
+  const trimmed = value.trim();
+  if (!trimmed) {
     return null;
   }
 
-  const trimmed = fecha.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (match) {
+    const [, year, month, day, hour, minute, second = "00"] = match;
+    const date = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second)
+    );
+
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return { date, iso: formatDateTimeLocal(date) };
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return { date: parsed, iso: formatDateTimeLocal(parsed) };
+}
+
+function parseDateOnly(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
     return trimmed;
   }
 
@@ -341,39 +153,213 @@ function normalizarFecha(fecha: unknown): string | null {
   return `${year}-${month}-${day}`;
 }
 
-function normalizarHora(hora: unknown): string | null {
-  if (typeof hora !== "string") {
+function normalizarTextoOpcional(valor: unknown): string | null {
+  if (typeof valor !== "string") {
     return null;
   }
 
-  const trimmed = hora.trim();
-  if (/^\d{2}:\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  return null;
+  const limpio = valor.trim();
+  return limpio.length > 0 ? limpio : null;
 }
 
-function combinarFechaHoraStrings(fecha: string, hora: string): string {
-  const horaNormalizada = hora.length === 5 ? `${hora}:00` : hora;
-  return `${fecha}T${horaNormalizada}`;
+function esAlcance(valor: unknown): valor is Alcance {
+  return valor === "personal" || valor === "equipo";
 }
 
-function normalizarBandera(valor: unknown): boolean {
-  if (typeof valor === "boolean") {
-    return valor;
+function esTipoRegistro(valor: unknown): valor is TipoRegistro {
+  return valor === "evento" || valor === "tarea";
+}
+
+async function verificarPertenencia(equipoId: number, userId: number): Promise<boolean> {
+  const pertenencia = await getQuery<{ id: number }>(
+    `SELECT me.id
+       FROM miembros_equipo me
+      WHERE me.id_equipo = ? AND me.id_usuario = ? AND me.estado = 'aceptado'`,
+    [equipoId, userId]
+  );
+
+  return Boolean(pertenencia);
+}
+
+async function registrarParticipantesEvento(
+  eventoId: number,
+  equipoId: number,
+  creadorId: number
+): Promise<ParticipanteRespuesta[]> {
+  const miembros = await allQuery<{ id_usuario: number }>(
+    `SELECT me.id_usuario
+       FROM miembros_equipo me
+      WHERE me.id_equipo = ? AND me.estado = 'aceptado'`,
+    [equipoId]
+  );
+
+  const participantes = new Set<number>(miembros.map((miembro) => miembro.id_usuario));
+  participantes.add(creadorId);
+
+  for (const participanteId of participantes) {
+    const estado = participanteId === creadorId ? "aceptado" : "pendiente";
+    await runQuery(
+      `INSERT OR IGNORE INTO participantes_evento_interno (id_evento, id_usuario, estado_asistencia)
+       VALUES (?, ?, ?)`,
+      [eventoId, participanteId, estado]
+    );
   }
 
-  if (typeof valor === "number") {
-    return valor !== 0;
+  const filas = await allQuery<ParticipanteRow>(
+    `SELECT pei.id_usuario, u.nombre, pei.estado_asistencia
+       FROM participantes_evento_interno pei
+       LEFT JOIN usuarios u ON u.id = pei.id_usuario
+      WHERE pei.id_evento = ?
+      ORDER BY CASE WHEN pei.id_usuario = ? THEN 0 ELSE 1 END, u.nombre COLLATE NOCASE`,
+    [eventoId, creadorId]
+  );
+
+  return filas.map((fila) => ({
+    id: fila.id_usuario,
+    nombre: fila.nombre,
+    estado: fila.estado_asistencia ?? "pendiente",
+  }));
+}
+
+function determinarTipoTarea(tarea: TareaRow): TipoUnificado {
+  if (tarea.es_grupal !== 0) {
+    return "tarea_grupal";
   }
 
-  if (typeof valor === "string") {
-    const limpio = valor.trim().toLowerCase();
-    return ["1", "true", "si", "sí", "on"].includes(limpio);
+  if (typeof tarea.tipo === "string") {
+    const normalizado = tarea.tipo.trim().toLowerCase();
+    if (normalizado === "tarea_grupal" || normalizado === "tarea de equipo") {
+      return "tarea_grupal";
+    }
   }
 
-  return false;
+  return "tarea_personal";
+}
+
+function obtenerFechaOrden(evento: EventoUnificado): number {
+  if (evento.inicio) {
+    const inicio = new Date(evento.inicio).getTime();
+    if (!Number.isNaN(inicio)) {
+      return inicio;
+    }
+  }
+
+  if (evento.fecha) {
+    const fecha = new Date(`${evento.fecha}T00:00:00`).getTime();
+    if (!Number.isNaN(fecha)) {
+      return fecha;
+    }
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
+export async function GET() {
+  try {
+    const userId = await obtenerUsuarioAutenticado();
+
+    if (!userId) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
+    const eventos = await allQuery<EventoInternoRow>(
+      `SELECT
+         e.id,
+         e.id_usuario,
+         e.id_equipo,
+         e.titulo,
+         e.descripcion,
+         e.inicio,
+         e.fin,
+         e.tipo,
+         eq.nombre AS equipo_nombre,
+         pei.estado_asistencia,
+         CASE WHEN e.id_usuario = ? THEN 1 ELSE 0 END AS es_organizador
+       FROM eventos_internos e
+       LEFT JOIN participantes_evento_interno pei
+         ON pei.id_evento = e.id AND pei.id_usuario = ?
+       LEFT JOIN equipos eq ON eq.id = e.id_equipo
+      WHERE e.id_usuario = ? OR pei.id IS NOT NULL
+      ORDER BY datetime(e.inicio) ASC`,
+      [userId, userId, userId]
+    );
+
+    const eventosUnificados: EventoUnificado[] = eventos.map((evento) => ({
+      id: `evento-${evento.id}`,
+      source: "evento_interno",
+      sourceId: evento.id,
+      tipo: "evento",
+      titulo: evento.titulo,
+      descripcion: evento.descripcion ?? null,
+      inicio: evento.inicio,
+      fin: evento.fin,
+      fecha: null,
+      idEquipo: evento.id_equipo,
+      alcance: evento.id_equipo ? "equipo" : "personal",
+      equipoNombre: evento.equipo_nombre ?? null,
+      estadoAsistencia:
+        evento.es_organizador === 1
+          ? "aceptado"
+          : evento.estado_asistencia ?? "pendiente",
+      esOrganizador: evento.es_organizador === 1,
+    }));
+
+    const tareas = await allQuery<TareaRow>(
+      `SELECT
+         t.id,
+         t.id_usuario,
+         t.id_equipo,
+         t.titulo,
+         t.descripcion,
+         t.fecha,
+         t.es_grupal,
+         t.tipo,
+         eq.nombre AS equipo_nombre
+       FROM tareas t
+       LEFT JOIN equipos eq ON eq.id = t.id_equipo
+       LEFT JOIN miembros_equipo me
+         ON me.id_equipo = t.id_equipo
+        AND me.id_usuario = ?
+        AND me.estado = 'aceptado'
+      WHERE t.id_usuario = ? OR me.id IS NOT NULL
+      ORDER BY date(t.fecha) ASC`,
+      [userId, userId]
+    );
+
+    const tareasUnificadas: EventoUnificado[] = tareas.map((tarea) => {
+      const tipo = determinarTipoTarea(tarea);
+      const alcance: Alcance = tipo === "tarea_grupal" ? "equipo" : "personal";
+
+      return {
+        id: `tarea-${tarea.id}`,
+        source: "tarea",
+        sourceId: tarea.id,
+        tipo,
+        titulo: tarea.titulo,
+        descripcion: tarea.descripcion ?? null,
+        inicio: null,
+        fin: null,
+        fecha: tarea.fecha,
+        idEquipo: tarea.id_equipo,
+        alcance,
+        equipoNombre: tarea.equipo_nombre ?? null,
+        estadoAsistencia: null,
+        esOrganizador: tarea.id_usuario === userId,
+      };
+    });
+
+    const combinados = [...eventosUnificados, ...tareasUnificadas].sort(
+      (a, b) => obtenerFechaOrden(a) - obtenerFechaOrden(b)
+    );
+
+    return NextResponse.json(combinados);
+  } catch (error) {
+    console.error("[GET /api/events]", error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -386,8 +372,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const tituloValor =
-      typeof body.titulo === "string" ? body.titulo.trim() : "";
+    const tituloValor = typeof body.titulo === "string" ? body.titulo.trim() : "";
     if (!tituloValor) {
       return NextResponse.json(
         { error: "El título es obligatorio" },
@@ -395,81 +380,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const descripcionNormalizada = normalizarTextoOpcional(body.descripcion);
-    const fechaInicio = normalizarFecha(body.fecha_inicio);
-    const fechaFin = normalizarFecha(body.fecha_fin);
-    const horaInicio = normalizarHora(body.hora_inicio);
-    const horaFin = normalizarHora(body.hora_fin);
-
-    if (!fechaInicio || !fechaFin || !horaInicio || !horaFin) {
-      return NextResponse.json(
-        { error: "Debes indicar una fecha y hora de inicio y fin" },
-        { status: 400 }
-      );
-    }
-
-    const inicioIso = combinarFechaHoraStrings(fechaInicio, horaInicio);
-    const finIso = combinarFechaHoraStrings(fechaFin, horaFin);
-
-    const inicioDate = new Date(inicioIso);
-    const finDate = new Date(finIso);
-
-    if (Number.isNaN(inicioDate.getTime()) || Number.isNaN(finDate.getTime())) {
-      return NextResponse.json(
-        { error: "Las fechas proporcionadas no son válidas" },
-        { status: 400 }
-      );
-    }
-
-    if (finDate.getTime() <= inicioDate.getTime()) {
-      return NextResponse.json(
-        { error: "La fecha de fin debe ser posterior a la de inicio" },
-        { status: 400 }
-      );
-    }
-
-    const tipoRaw = typeof body.tipo === "string" ? body.tipo.trim() : "";
-    if (!TIPOS_CREACION.has(tipoRaw as TipoCreacion)) {
+    if (!esTipoRegistro(body.tipoRegistro)) {
       return NextResponse.json(
         { error: "Tipo de registro inválido" },
         { status: 400 }
       );
     }
 
-    const esEquipo = normalizarBandera(body.es_equipo);
-    let tipoSolicitud = tipoRaw as TipoCreacion;
-
-    if (tipoSolicitud === "tarea_grupal" && !esEquipo) {
+    if (!esAlcance(body.alcance)) {
       return NextResponse.json(
-        { error: "Las tareas grupales requieren un equipo" },
+        { error: "Alcance inválido" },
         { status: 400 }
       );
     }
 
-    if (esEquipo && tipoSolicitud === "evento") {
-      tipoSolicitud = "tarea_grupal";
-    }
+    const descripcion = normalizarTextoOpcional(body.descripcion);
+    const esEquipo = body.alcance === "equipo";
+    let equipoId: number | null = null;
 
-    const tipoFinal: TipoCreacion = esEquipo ? "tarea_grupal" : tipoSolicitud;
-    const requiereEquipo = tipoFinal === "tarea_grupal";
-    const equipoId = requiereEquipo ? Number(body.equipo_id) : null;
-
-    if (requiereEquipo) {
-      if (!Number.isInteger(equipoId) || (equipoId ?? 0) <= 0) {
+    if (esEquipo) {
+      equipoId = Number(body.idEquipo);
+      if (!Number.isInteger(equipoId) || equipoId <= 0) {
         return NextResponse.json(
           { error: "Debes seleccionar un equipo válido" },
           { status: 400 }
         );
       }
 
-      const pertenencia = await getQuery<{ id: number }>(
-        `SELECT me.id
-         FROM miembros_equipo me
-         WHERE me.id_equipo = ? AND me.id_usuario = ? AND me.estado = 'aceptado'`,
-        [equipoId, userId]
-      );
-
-      if (!pertenencia) {
+      const pertenece = await verificarPertenencia(equipoId, userId);
+      if (!pertenece) {
         return NextResponse.json(
           { error: "No perteneces al equipo seleccionado" },
           { status: 403 }
@@ -477,46 +416,131 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (tipoFinal === "evento") {
-      const insertResult = await runQuery(
+    if (body.tipoRegistro === "evento") {
+      const inicio = parseDateTimeInput(body.inicio);
+      if (!inicio) {
+        return NextResponse.json(
+          { error: "La fecha y hora de inicio es obligatoria" },
+          { status: 400 }
+        );
+      }
+
+      let fin = parseDateTimeInput(body.fin);
+      const duracionMinutos = Number(body.duracionMinutos);
+
+      if (!fin && Number.isFinite(duracionMinutos) && duracionMinutos > 0) {
+        const finCalculado = new Date(inicio.date.getTime() + duracionMinutos * MINUTE_IN_MS);
+        fin = { date: finCalculado, iso: formatDateTimeLocal(finCalculado) };
+      }
+
+      if (!fin) {
+        return NextResponse.json(
+          { error: "La fecha y hora de fin es obligatoria" },
+          { status: 400 }
+        );
+      }
+
+      if (fin.date.getTime() <= inicio.date.getTime()) {
+        return NextResponse.json(
+          { error: "La fecha de fin debe ser posterior a la de inicio" },
+          { status: 400 }
+        );
+      }
+
+      const tipoEvento = esEquipo ? "equipo" : "personal";
+
+      const insert = await runQuery(
         `INSERT INTO eventos_internos
           (id_usuario, id_equipo, titulo, descripcion, inicio, fin, ubicacion, tipo, recordatorio)
-         VALUES (?, NULL, ?, ?, ?, ?, NULL, ?, 0)`,
-        [
-          userId,
-          tituloValor,
-          descripcionNormalizada,
-          inicioIso,
-          finIso,
-          "personal",
-        ]
+         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 0)`,
+        [userId, equipoId, tituloValor, descripcion, inicio.iso, fin.iso, tipoEvento]
       );
 
-      const id = Number(insertResult.lastID);
+      const eventoId = Number(insert.lastID);
+      const duracionCalculada = Math.round((fin.date.getTime() - inicio.date.getTime()) / MINUTE_IN_MS);
+
+      let participantes: ParticipanteRespuesta[];
+
+      if (esEquipo && equipoId) {
+        participantes = await registrarParticipantesEvento(eventoId, equipoId, userId);
+      } else {
+        participantes = [
+          {
+            id: userId,
+            nombre: null,
+            estado: "aceptado",
+          },
+        ];
+      }
+
       return NextResponse.json(
-        { id, tipo: tipoFinal, message: "Evento creado correctamente" },
+        {
+          message: esEquipo
+            ? "Evento de equipo creado correctamente"
+            : "Evento creado correctamente",
+          registro: {
+            id: eventoId,
+            tipoRegistro: "evento" as const,
+            alcance: body.alcance,
+            titulo: tituloValor,
+            descripcion,
+            inicio: inicio.iso,
+            fin: fin.iso,
+            fecha: null,
+            idEquipo: equipoId,
+            duracionMinutos: duracionCalculada,
+            participantes,
+          },
+        },
         { status: 201 }
       );
     }
 
-    const insertResult = await runQuery(
+    const fecha = parseDateOnly(body.fecha ?? body.inicio);
+    if (!fecha) {
+      return NextResponse.json(
+        { error: "La fecha de la tarea es obligatoria" },
+        { status: 400 }
+      );
+    }
+
+    const tipoTarea: TipoUnificado = esEquipo ? "tarea_grupal" : "tarea_personal";
+
+    const insert = await runQuery(
       `INSERT INTO tareas
         (id_usuario, id_equipo, titulo, descripcion, fecha, es_grupal, tipo)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
-        requiereEquipo ? equipoId : null,
+        equipoId,
         tituloValor,
-        descripcionNormalizada,
-        fechaInicio,
-        requiereEquipo ? 1 : 0,
-        tipoFinal,
+        descripcion,
+        fecha,
+        esEquipo ? 1 : 0,
+        tipoTarea,
       ]
     );
 
-    const id = Number(insertResult.lastID);
+    const tareaId = Number(insert.lastID);
+
     return NextResponse.json(
-      { id, tipo: tipoFinal, message: "Tarea registrada correctamente" },
+      {
+        message: esEquipo
+          ? "Tarea grupal creada correctamente"
+          : "Tarea registrada correctamente",
+        registro: {
+          id: tareaId,
+          tipoRegistro: "tarea" as const,
+          alcance: body.alcance,
+          titulo: tituloValor,
+          descripcion,
+          inicio: null,
+          fin: null,
+          fecha,
+          idEquipo: equipoId,
+          tipo: tipoTarea,
+        },
+      },
       { status: 201 }
     );
   } catch (error) {
@@ -527,4 +551,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
