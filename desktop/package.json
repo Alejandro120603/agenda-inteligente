@@ -1,0 +1,13 @@
+{
+  "name": "agenda-inteligente-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wrapper de escritorio Tauri para Agenda Inteligente",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.9"
+  }
+}

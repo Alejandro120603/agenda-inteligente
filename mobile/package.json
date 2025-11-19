@@ -1,0 +1,22 @@
+{
+  "name": "agenda-inteligente-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wrapper móvil con Capacitor para Agenda Inteligente",
+  "scripts": {
+    "sync": "npx cap sync",
+    "android": "npx cap open android",
+    "ios": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^5.7.0",
+    "@capacitor/app": "^5.0.6",
+    "@capacitor/core": "^5.7.0",
+    "@capacitor/ios": "^5.7.0",
+    "@capacitor/preferences": "^5.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^5.7.0",
+    "typescript": "^5.4.0"
+  }
+}

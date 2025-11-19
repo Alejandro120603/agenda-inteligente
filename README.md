@@ -100,3 +100,54 @@ Content-Type: application/json
 
 { "error": "No autenticado" }
 ```
+
+## Multiplataforma
+
+### PWA (Next.js)
+1. Instala dependencias y levanta el frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+2. Verifica que `http://localhost:3000/manifest.json` responde correctamente.
+3. Abre las DevTools del navegador (Application → Service Workers) y confirma que `sw.js` se registre en producción. En desarrollo puedes forzarlo ejecutando un build (`npm run build && npm run start`).
+4. Ejecuta Lighthouse y comprueba que detecta la aplicación como instalable.
+5. Sustituye los iconos de `frontend/public/icons/` por imágenes reales en formato PNG para los tamaños indicados (192px y 512px como mínimo).
+
+### Aplicación móvil (Capacitor)
+Consulta la guía detallada en [`mobile/README.md`](mobile/README.md). Resumen rápido:
+1. Copia `.env.multiplatform.example` a `.env` y ajusta `MOBILE_SERVER_URL`.
+2. Desde `mobile/`, instala dependencias con `npm install`.
+3. Sincroniza plataformas con `npm run sync`.
+4. Añade Android/iOS (`npx cap add android` / `npx cap add ios`) y abre cada proyecto (`npm run android` / `npm run ios`).
+5. Comprueba que la aplicación abre la web remota y funciona el inicio de sesión.
+
+### Aplicación de escritorio (Tauri)
+Consulta [`desktop/README.md`](desktop/README.md). Resumen:
+1. Configura `DESKTOP_SERVER_URL` en tu `.env`.
+2. Desde `desktop/`, instala dependencias con `npm install`.
+3. Ejecuta `npm run dev` para abrir la ventana que carga la web remota.
+4. Utiliza `npm run build` para generar binarios de distribución.
+
+## Resumen de cambios multiplataforma
+- **PWA**: `frontend/public/manifest.json`, `frontend/public/sw.js`, `frontend/app/layout.tsx`, `frontend/components/ServiceWorkerRegistrar.tsx`.
+- **Mobile (Capacitor)**: carpeta `mobile/` con `package.json`, `capacitor.config.ts`, `tsconfig.json` y documentación.
+- **Desktop (Tauri)**: carpeta `desktop/` con configuración de Tauri (`src-tauri/`), `package.json`, `README.md` y placeholder de frontend.
+- **Configuración común**: archivo `.env.multiplatform.example` en la raíz para centralizar URLs.
+
+## Cómo probar todo
+1. **Web PWA**:
+   - `cd frontend && npm run dev`.
+   - Visita `http://localhost:3000/manifest.json` y comprueba que Lighthouse reconoce la PWA.
+   - En producción (`npm run build && npm run start`), revisa en DevTools que el service worker esté activo.
+2. **Mobile**:
+   - `cd mobile && npm install`.
+   - Ajusta `MOBILE_SERVER_URL` para apuntar al backend remoto (LAN o dominio).
+   - `npm run sync`, luego `npx cap add android` / `npx cap add ios` y abre cada IDE con `npm run android` / `npm run ios`.
+   - Comprueba que la app carga la web y que las operaciones básicas (login, eventos) funcionan.
+3. **Desktop**:
+   - `cd desktop && npm install`.
+   - Configura `DESKTOP_SERVER_URL` (por ejemplo `http://localhost:3000`).
+   - `npm run dev` para ejecutar en modo desarrollo o `npm run build` para generar binarios.
+   - Confirma que la ventana abre la web de Agenda Inteligente y mantiene el flujo de trabajo.
